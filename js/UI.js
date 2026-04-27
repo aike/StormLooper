@@ -479,7 +479,7 @@ export class UI {
     } else if (track.state === 'playing' && fraction > 0) {
       G.beginPath();
       G.arc(cx, cy, 86, startA, startA + fraction * Math.PI * 2);
-      G.strokeStyle = '#28b828'; G.lineWidth = 10; G.stroke();
+      G.strokeStyle = '#202090'; G.lineWidth = 10; G.stroke();
     }
   }
 
