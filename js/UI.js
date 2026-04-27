@@ -66,7 +66,7 @@ export class UI {
   _makeHeader() {
     const hdr = el('div', 'header');
     const titles = el('div', '');
-    titles.innerHTML = `<div class="header-title">StormLooper</div><div class="header-subtitle">RC-505 Style · Web Audio API</div>`;
+    titles.innerHTML = `<div class="header-title">StormLooper</div><div class="header-subtitle">Web Audio Looper application</div>`;
     hdr.appendChild(titles);
     hdr.appendChild(el('div', 'header-spacer'));
 

@@ -41,8 +41,8 @@ async function startOnce() {
   `;
   overlay.innerHTML = `
     <div style="font-size:48px">🎵</div>
-    <div style="font-size:22px;font-weight:700;color:#ffaa00;letter-spacing:3px">WEB LOOPER</div>
-    <div style="font-size:13px;color:#888">RC-505 Style · Web Audio API</div>
+    <div style="font-size:22px;font-weight:700;color:#ffaa00;letter-spacing:3px">StormLooper</div>
+    <div style="font-size:13px;color:#888">Web Audio Looper application</div>
     <button id="start-btn" style="
       margin-top:8px;padding:14px 40px;font-size:16px;font-weight:700;
       background:#2878d0;color:#fff;border:none;border-radius:8px;cursor:pointer;

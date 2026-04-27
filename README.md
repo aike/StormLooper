@@ -1,8 +1,8 @@
 # StormLooper
 
-A browser-based loop station inspired by the BOSS RC-505, built with vanilla JavaScript and the Web Audio API. No build step, no dependencies.
+A browser-based Looper application, built with vanilla JavaScript and the Web Audio API. No build step, no dependencies.
 
-![StormLooper screenshot](https://placeholder)
+![StormLooper screenshot](ss.png)
 
 ## Features
 
@@ -123,7 +123,7 @@ Keys can be held and released like a real keyboard — each key triggers note-on
 ## Project Structure
 
 ```
-looper/
+StormLooper/
 ├── index.html          # Minimal shell — just mounts #app and loads main.js
 └── js/
     ├── main.js         # Bootstrap: init overlay, AudioContext gate
