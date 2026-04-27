@@ -24,6 +24,7 @@ export class UI {
     this._synthPanel      = null;
     this._metronome       = new Metronome(audioEngine);
     this._metroBtn        = null;
+    this._gridCanvas      = null;
 
     this._globalDots   = [];
     this._barCounterEl = null;
@@ -41,6 +42,11 @@ export class UI {
     left.appendChild(this._makeToolbar());
 
     this._tracksContainer = el('div', 'tracks-panel');
+
+    this._gridCanvas = document.createElement('canvas');
+    this._gridCanvas.style.cssText = 'position:absolute;inset:0;pointer-events:none;';
+    this._tracksContainer.appendChild(this._gridCanvas);
+
     this._showEmptyState();
     left.appendChild(this._tracksContainer);
 
@@ -60,6 +66,9 @@ export class UI {
 
     this.transport.onTick(info => this._onGlobalTick(info));
     this._bindKeyboard();
+
+    requestAnimationFrame(() => this._drawGrid());
+    new ResizeObserver(() => this._drawGrid()).observe(this._tracksContainer);
   }
 
   // ── Header ────────────────────────────────────────────────────────────────
@@ -200,12 +209,70 @@ export class UI {
   }
 
   _showEmptyState() {
-    this._tracksContainer.innerHTML = `
-      <div class="tracks-empty">
-        <div class="tracks-empty-icon">🎵</div>
-        <div>Add a track to start looping</div>
-        <div style="font-size:11px;color:#555">Record from mic, play the synth, or load a WAV file</div>
-      </div>`;
+    const div = el('div', 'tracks-empty');
+    const icon = el('div', 'tracks-empty-icon'); icon.textContent = '🎵';
+    const msg1 = el('div', ''); msg1.textContent = 'Add a track to start looping';
+    const msg2 = el('div', ''); msg2.textContent = 'Record from mic, play the synth, or load a WAV file';
+    msg2.style.cssText = 'font-size:11px;color:#555';
+    div.append(icon, msg1, msg2);
+    this._tracksContainer.appendChild(div);
+  }
+
+  // ── Grid background ───────────────────────────────────────────────────────
+  _drawGrid() {
+    const canvas = this._gridCanvas;
+    if (!canvas) return;
+    const cW = this._tracksContainer.clientWidth;
+    const cH = this._tracksContainer.clientHeight;
+    if (!cW || !cH) return;
+    canvas.width  = cW;
+    canvas.height = cH;
+
+    const G      = canvas.getContext('2d');
+    const rangeH = Math.max(1, cH - CIRCLE_D);
+
+    G.font = '10px Segoe UI, system-ui, sans-serif';
+
+    // ── Horizontal dB lines ──
+    for (const db of [0, -6, -12, -18, -24, -36]) {
+      const vol  = db === 0 ? 1 : Math.pow(10, db / 20);
+      const y    = (1 - vol) * rangeH + CIRCLE_D / 2;
+      const dim  = db === 0;
+
+      G.save();
+      G.strokeStyle = dim ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)';
+      G.lineWidth   = dim ? 1 : 0.5;
+      if (!dim) G.setLineDash([3, 6]);
+      G.beginPath(); G.moveTo(0, y); G.lineTo(cW, y); G.stroke();
+      G.restore();
+
+      G.fillStyle    = dim ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.25)';
+      G.textAlign    = 'left';
+      G.textBaseline = 'bottom';
+      G.fillText(db === 0 ? '0 dB' : `${db} dB`, 6, y - 2);
+    }
+
+    // ── Center vertical line ──
+    const cx = cW / 2;
+    G.save();
+    G.strokeStyle = 'rgba(255,255,255,0.1)';
+    G.lineWidth   = 1;
+    G.setLineDash([3, 6]);
+    G.beginPath(); G.moveTo(cx, 0); G.lineTo(cx, cH); G.stroke();
+    G.restore();
+
+    // ── Pan / center labels ──
+    G.fillStyle    = 'rgba(255,255,255,0.3)';
+    G.textBaseline = 'top';
+
+    G.textAlign = 'left';
+    G.fillText('L', 6, 6);
+
+    G.textAlign = 'center';
+    G.fillText('CENTER', cx, 6);
+
+    G.textAlign = 'right';
+    G.fillText('R', cW - 6, 6);
   }
 
   // ── Properties Panel ──────────────────────────────────────────────────────

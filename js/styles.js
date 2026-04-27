@@ -150,6 +150,7 @@ export function injectStyles() {
       user-select: none;
       touch-action: none;
       transition: box-shadow 0.15s;
+      z-index: 1;
     }
     .track-circle:active { cursor: grabbing; }
     .track-circle canvas { display: block; border-radius: 50%; }
