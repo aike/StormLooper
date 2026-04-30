@@ -24,6 +24,14 @@ export class Metronome {
     this._nextBeatTime = null;
   }
 
+  // Schedule exactly one bar of clicks at audio-precise times.
+  playOneBar(transport, barStartTime) {
+    const beatDur = transport.beatDuration;
+    for (let i = 0; i < 4; i++) {
+      this._click(barStartTime + i * beatDur, i === 0);
+    }
+  }
+
   _scheduleNext(gen) {
     if (!this._active || gen !== this._gen) return;
     const t   = this._transport;

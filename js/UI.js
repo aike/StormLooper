@@ -23,8 +23,9 @@ export class UI {
     this._savedPlayingIds = null;
     this._synthPanel      = null;
     this._metronome       = new Metronome(audioEngine);
-    this._metroBtn        = null;
     this._gridCanvas      = null;
+    this._vfxCanvas       = null;
+    this._vfxRaf          = null;
 
     this._globalDots   = [];
     this._barCounterEl = null;
@@ -42,6 +43,10 @@ export class UI {
     left.appendChild(this._makeToolbar());
 
     this._tracksContainer = el('div', 'tracks-panel');
+
+    this._vfxCanvas = document.createElement('canvas');
+    this._vfxCanvas.style.cssText = 'position:absolute;inset:0;pointer-events:none;';
+    this._tracksContainer.appendChild(this._vfxCanvas);
 
     this._gridCanvas = document.createElement('canvas');
     this._gridCanvas.style.cssText = 'position:absolute;inset:0;pointer-events:none;';
@@ -68,7 +73,8 @@ export class UI {
     this._bindKeyboard();
 
     requestAnimationFrame(() => this._drawGrid());
-    new ResizeObserver(() => this._drawGrid()).observe(this._tracksContainer);
+    new ResizeObserver(() => { this._drawGrid(); this._repositionAllTracks(); }).observe(this._tracksContainer);
+    this._startVFX();
   }
 
   // ── Header ────────────────────────────────────────────────────────────────
@@ -188,25 +194,14 @@ export class UI {
   _makeToolbar() {
     const bar = el('div', 'toolbar');
     this._stopAllBtn = btn('⏹ Stop All', 'btn btn-default', () => this._toggleStopStart());
-    this._metroBtn   = btn('METRO', 'btn btn-default', () => this._toggleMetro());
     bar.append(
       btn('＋ Add Track', 'btn btn-blue',  () => this._addTrack()),
       this._stopAllBtn,
       btn('✕ Clear All', 'btn btn-danger', () => this._clearAll()),
-      this._metroBtn,
     );
     return bar;
   }
 
-  _toggleMetro() {
-    if (this._metronome._active) {
-      this._metronome.stop();
-      this._metroBtn.className = 'btn btn-default';
-    } else {
-      this._metronome.start(this.transport);
-      this._metroBtn.className = 'btn btn-amber active';
-    }
-  }
 
   _showEmptyState() {
     const div = el('div', 'tracks-empty');
@@ -240,13 +235,13 @@ export class UI {
       const dim  = db === 0;
 
       G.save();
-      G.strokeStyle = dim ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)';
-      G.lineWidth   = dim ? 1 : 0.5;
+      G.strokeStyle = dim ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.22)';
+      G.lineWidth   = dim ? 1 : 1;
       if (!dim) G.setLineDash([3, 6]);
       G.beginPath(); G.moveTo(0, y); G.lineTo(cW, y); G.stroke();
       G.restore();
 
-      G.fillStyle    = dim ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.25)';
+      G.fillStyle    = dim ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.45)';
       G.textAlign    = 'left';
       G.textBaseline = 'bottom';
       G.fillText(db === 0 ? '0 dB' : `${db} dB`, 6, y - 2);
@@ -255,14 +250,14 @@ export class UI {
     // ── Center vertical line ──
     const cx = cW / 2;
     G.save();
-    G.strokeStyle = 'rgba(255,255,255,0.1)';
+    G.strokeStyle = 'rgba(255,255,255,0.25)';
     G.lineWidth   = 1;
     G.setLineDash([3, 6]);
     G.beginPath(); G.moveTo(cx, 0); G.lineTo(cx, cH); G.stroke();
     G.restore();
 
     // ── Pan / center labels ──
-    G.fillStyle    = 'rgba(255,255,255,0.3)';
+    G.fillStyle    = 'rgba(255,255,255,0.5)';
     G.textBaseline = 'top';
 
     G.textAlign = 'left';
@@ -273,6 +268,98 @@ export class UI {
 
     G.textAlign = 'right';
     G.fillText('R', cW - 6, 6);
+  }
+
+  // ── Reposition all track circles from vol/pan ─────────────────────────────
+  _repositionAllTracks() {
+    const cW = this._tracksContainer.clientWidth;
+    const cH = this._tracksContainer.clientHeight;
+    if (!cW || !cH) return;
+    const rangeW = Math.max(1, cW - CIRCLE_D);
+    const rangeH = Math.max(1, cH - CIRCLE_D);
+
+    for (const track of this.tracks) {
+      const ui = this._trackUIs.get(track.id);
+      if (!ui) continue;
+      const left = Math.max(0, Math.min(cW - CIRCLE_D, ((track.pan + 1) / 2) * rangeW));
+      const top  = Math.max(0, Math.min(cH - CIRCLE_D, (1 - track.volume) * rangeH));
+      ui.card.style.left = left + 'px';
+      ui.card.style.top  = top  + 'px';
+    }
+  }
+
+  // ── VFX background animation ──────────────────────────────────────────────
+  _startVFX() {
+    const canvas = this._vfxCanvas;
+    let W = 0, H = 0, t = 0;
+
+    // Slow-drifting color blobs — organic ambient light
+    const blobs = [
+      { cx: 0.30, cy: 0.40, ax: 0.22, ay: 0.18, fx: 1.10, fy: 0.83, ph: 0.00, r: 0.32, hue: 200 },
+      { cx: 0.70, cy: 0.60, ax: 0.18, ay: 0.24, fx: 0.73, fy: 1.31, ph: 1.20, r: 0.28, hue: 260 },
+      { cx: 0.50, cy: 0.28, ax: 0.26, ay: 0.16, fx: 0.51, fy: 1.70, ph: 2.40, r: 0.25, hue: 180 },
+      { cx: 0.22, cy: 0.72, ax: 0.16, ay: 0.22, fx: 1.47, fy: 0.61, ph: 3.60, r: 0.30, hue: 220 },
+      { cx: 0.78, cy: 0.25, ax: 0.20, ay: 0.20, fx: 0.89, fy: 1.13, ph: 4.80, r: 0.22, hue: 290 },
+      { cx: 0.50, cy: 0.80, ax: 0.24, ay: 0.14, fx: 1.33, fy: 0.53, ph: 0.70, r: 0.26, hue: 160 },
+    ];
+
+    // Lissajous figures — slowly evolving parametric traces
+    const figures = [
+      { a: 3, b: 2, sx: 0.28, sy: 0.20, speed: 0.55, ph: 0.00, hue: 200 },
+      { a: 5, b: 4, sx: 0.22, sy: 0.28, speed: 0.37, ph: 0.50, hue: 260 },
+      { a: 2, b: 3, sx: 0.25, sy: 0.22, speed: 0.43, ph: 1.00, hue: 180 },
+    ];
+
+    const draw = () => {
+      this._vfxRaf = requestAnimationFrame(draw);
+
+      const cW = this._tracksContainer.clientWidth;
+      const cH = this._tracksContainer.clientHeight;
+      if (!cW || !cH) return;
+
+      if (cW !== W || cH !== H) {
+        canvas.width  = W = cW;
+        canvas.height = H = cH;
+      }
+
+      t += 0.005;
+      const G = canvas.getContext('2d');
+      G.clearRect(0, 0, W, H);
+
+      for (const b of blobs) {
+        const bx  = (b.cx + Math.sin(t * b.fx + b.ph) * b.ax) * W;
+        const by  = (b.cy + Math.cos(t * b.fy + b.ph * 0.7) * b.ay) * H;
+        const br  = b.r * Math.min(W, H);
+        const hue = (b.hue + t * 10) % 360;
+        const grd = G.createRadialGradient(bx, by, 0, bx, by, br);
+        grd.addColorStop(0,   `hsla(${hue}, 80%, 55%, 0.08)`);
+        grd.addColorStop(0.5, `hsla(${hue}, 70%, 45%, 0.04)`);
+        grd.addColorStop(1,   `hsla(${hue}, 70%, 45%, 0)`);
+        G.beginPath();
+        G.arc(bx, by, br, 0, Math.PI * 2);
+        G.fillStyle = grd;
+        G.fill();
+      }
+
+      const fcx = W / 2, fcy = H / 2;
+      for (const f of figures) {
+        const rx  = f.sx * W;
+        const ry  = f.sy * H;
+        const hue = (f.hue + t * 8) % 360;
+        G.beginPath();
+        for (let i = 0; i <= 512; i++) {
+          const θ = (i / 512) * Math.PI * 2;
+          const x = fcx + Math.sin(f.a * θ + t * f.speed + f.ph) * rx;
+          const y = fcy + Math.sin(f.b * θ) * ry;
+          i === 0 ? G.moveTo(x, y) : G.lineTo(x, y);
+        }
+        G.strokeStyle = `hsla(${hue}, 80%, 65%, 0.06)`;
+        G.lineWidth   = 1.5;
+        G.stroke();
+      }
+    };
+
+    draw();
   }
 
   // ── Properties Panel ──────────────────────────────────────────────────────
@@ -424,6 +511,7 @@ export class UI {
       _waveformSamples: null,
       _dragCleanup:     null,
       badge: null, recBtn: null, playToggleBtn: null, nameSpan: null, srcSel: null,
+      devRow: null, devSel: null, selectedDeviceId: null,
       lockedSource: null,
     };
 
@@ -495,21 +583,35 @@ export class UI {
     G.clearRect(0, 0, CIRCLE_D, CIRCLE_D);
 
     const src = ui.selectedSource;
-    const BG  = { mic: '#0d1520', synth: '#130d20', file: '#1a1508' }[src] ?? '#141414';
-    const CLR = { mic: '#1e4488', synth: '#6622aa', file: '#996600' }[src] ?? '#2a3a4a';
+    const BG  = { mic: '#0d1520', synth: '#110d22', file: '#0d1520' }[src] ?? '#141414';
+    const CLR = { mic: '#2860cc', synth: '#5533bb', file: '#5599ee' }[src] ?? '#2a3a4a';
 
     // Background fill
     G.beginPath(); G.arc(cx, cy, 80, 0, Math.PI * 2);
     G.fillStyle = BG; G.fill();
 
     // Waveform ring (evenodd donut: outer = waveform path, inner = circle at r=48)
+    // Samples are remapped so that circle position aligns with loop-span time,
+    // not raw buffer time. Silence pads the arc beyond bufDur.
     const s = ui._waveformSamples;
     if (s) {
-      const N = s.length;
+      const N        = s.length;
+      const span     = track.scheduler
+        ? track.scheduler.getLoopSpan()
+        : (track.buffer ? this.transport.computeLoopSpan(track.buffer.duration) : null);
+      const fillFrac = (span && track.buffer)
+        ? Math.min(1, track.buffer.duration / span)
+        : 1;
+
       G.beginPath();
       for (let i = 0; i <= N; i++) {
-        const a = (i / N) * Math.PI * 2 - Math.PI / 2;
-        const r = 48 + s[i % N] * 28;
+        const loopFrac = i / N;
+        // Map circle angle → loop time → buffer sample; silence past fillFrac
+        const amp = loopFrac < fillFrac
+          ? s[Math.min(N - 1, Math.floor((loopFrac / fillFrac) * N))]
+          : 0;
+        const a = loopFrac * Math.PI * 2 - Math.PI / 2;
+        const r = 48 + amp * 28;
         if (i === 0) G.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
         else         G.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
       }
@@ -611,6 +713,8 @@ export class UI {
         sb.classList.add('active');
         this._updateTrackSourceColor(track, ui);
         this._updateSynthVisibility();
+        if (s.id === 'mic') this._refreshMicDevices(ui);
+        else if (ui.devRow) ui.devRow.style.display = 'none';
       });
       srcSel.appendChild(sb);
     });
@@ -625,11 +729,24 @@ export class UI {
     srcRow.append(srcLabel, srcSel);
     wrap.appendChild(srcRow);
 
+    // ── Device selector (MIC only, shown when multiple inputs are available) ──
+    const devRow = el('div', 'props-section');
+    devRow.style.display = 'none';
+    const devLabel = el('div', 'props-label'); devLabel.textContent = 'INPUT';
+    const devSel = document.createElement('select');
+    devSel.style.flex = '1';
+    devRow.append(devLabel, devSel);
+    wrap.appendChild(devRow);
+
     ui.badge         = badge;
     ui.recBtn        = recBtn;
     ui.playToggleBtn = playToggleBtn;
     ui.nameSpan      = nameSpan;
     ui.srcSel        = srcSel;
+    ui.devRow        = devRow;
+    ui.devSel        = devSel;
+
+    this._refreshMicDevices(ui);
 
     return wrap;
   }
@@ -651,6 +768,31 @@ export class UI {
     this._synthPanel.style.display = ui?.selectedSource === 'synth' ? '' : 'none';
   }
 
+  async _refreshMicDevices(ui) {
+    if (!ui.devRow || ui.selectedSource !== 'mic') return;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const inputs  = devices.filter(d => d.kind === 'audioinput');
+      if (inputs.length <= 1) {
+        ui.devRow.style.display  = 'none';
+        ui.selectedDeviceId      = inputs[0]?.deviceId ?? null;
+        return;
+      }
+      const prev = ui.selectedDeviceId || ui.devSel.value;
+      ui.devSel.innerHTML = '';
+      inputs.forEach((d, i) => {
+        const opt       = document.createElement('option');
+        opt.value       = d.deviceId;
+        opt.textContent = d.label || `Input ${i + 1}`;
+        ui.devSel.appendChild(opt);
+      });
+      if (prev) ui.devSel.value = prev;
+      ui.selectedDeviceId  = ui.devSel.value || null;
+      ui.devSel.onchange   = () => { ui.selectedDeviceId = ui.devSel.value; };
+      ui.devRow.style.display = '';
+    } catch (_) {}
+  }
+
   // ── Record Handler ────────────────────────────────────────────────────────
   async _handleRecord(track, getSource, ui) {
     await this.engine.resume();
@@ -665,6 +807,7 @@ export class UI {
           this._applySourceLock(ui);
           track.startLooping(this.transport, this.transport.getNextBarTime());
           this.toast(`${track.name} — 録音完了、再生開始`, 'success');
+          this._refreshMicDevices(ui); // labels now available after permission granted
         }
       } catch (err) {
         this.toast('録音に失敗: ' + err.message, 'error');
@@ -696,6 +839,10 @@ export class UI {
     ui.recBtn.innerHTML = '✕ CANCEL';
     ui.recBtn.classList.add('active');
 
+    this.recorder.onCountdownBar = (barTime) => {
+      this._metronome.playOneBar(this.transport, barTime);
+    };
+
     this.recorder.onRecordingStart = () => {
       track.state = 'recording';
       track.recordStartBarTime = this.transport.ctx.currentTime;
@@ -705,7 +852,7 @@ export class UI {
 
     try {
       if (source === 'mic') {
-        await this.recorder.startMicAligned(this.transport, false);
+        await this.recorder.startMicAligned(this.transport, false, ui.selectedDeviceId);
       } else {
         await this.recorder.startSynthAligned(this.synth.outputGain, this.transport);
       }

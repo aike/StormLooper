@@ -61,6 +61,16 @@ export class Transport {
     };
   }
 
+  // Quantized loop span for a buffer of given duration (mirrors LoopScheduler logic)
+  computeLoopSpan(bufDur) {
+    const beatDur = this.beatDuration;
+    const barDur  = this.barDuration;
+    const beats   = bufDur / beatDur;
+    if (beats < 1.5) return beatDur;
+    if (beats < 2.5) return beatDur * 2;
+    return Math.max(barDur, Math.ceil(bufDur / barDur + 1e-6) * barDur);
+  }
+
   // AudioCtx time of the start of the next bar (>= fromTime)
   getNextBarTime(fromTime) {
     return this.getNextBoundaryTime(this.barDuration, fromTime);

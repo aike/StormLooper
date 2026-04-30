@@ -11,17 +11,19 @@ export class Recorder {
     this._recordDest = null;
     this._synthSource = null;
 
-    this._pendingTimer = null;  // setTimeout handle for beat-aligned start
+    this._pendingTimer  = null;   // setTimeout: fires at countdown bar start
+    this._pendingTimer2 = null;   // setTimeout: fires at actual recording start
+    this.onCountdownBar   = null; // callback(barAudioTime) fired when countdown bar begins
     this.onRecordingStart = null; // callback fired when recording actually begins
   }
 
   // ── Beat-aligned mic recording ──────────────────────────────────────────
   // Returns a Promise that resolves when recording has started (at beat 1).
   // Call stop() to end recording and receive the AudioBuffer.
-  async startMicAligned(transport, monitor = false) {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-    });
+  async startMicAligned(transport, monitor = false, deviceId = null) {
+    const audioConstraints = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+    if (deviceId) audioConstraints.deviceId = { exact: deviceId };
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
     const ctx = this.engine.ctx;
     await this.engine.resume();
 
@@ -38,7 +40,7 @@ export class Recorder {
     this._recordDest = ctx.createMediaStreamDestination();
     this._micSource.connect(this._recordDest);
 
-    return this._waitForBeat1(transport);
+    return this._waitForRecordStart(transport);
   }
 
   // ── Beat-aligned synth recording ─────────────────────────────────────────
@@ -48,21 +50,28 @@ export class Recorder {
     this._synthSource = synthOutputNode;
     synthOutputNode.connect(this._recordDest);
 
-    return this._waitForBeat1(transport);
+    return this._waitForRecordStart(transport);
   }
 
-  // Wait until the next bar's beat 1 to start MediaRecorder
-  _waitForBeat1(transport) {
-    const nextBarTime = transport.getNextBarTime();
-    const delayMs = Math.max(0, (nextBarTime - this.engine.ctx.currentTime) * 1000);
+  // Wait one countdown bar (metronome), then start MediaRecorder at the following bar.
+  _waitForRecordStart(transport) {
+    const ctx            = this.engine.ctx;
+    const now            = ctx.currentTime;
+    const countdownStart = transport.getNextBarTime();       // bar where metronome plays
+    const recordStart    = countdownStart + transport.barDuration; // bar where recording begins
 
     return new Promise((resolve) => {
       this._pendingTimer = setTimeout(() => {
         this._pendingTimer = null;
+        if (this.onCountdownBar) this.onCountdownBar(countdownStart);
+      }, Math.max(0, (countdownStart - now) * 1000));
+
+      this._pendingTimer2 = setTimeout(() => {
+        this._pendingTimer2 = null;
         this._startMediaRecorder(this._recordDest.stream);
         if (this.onRecordingStart) this.onRecordingStart();
         resolve();
-      }, delayMs);
+      }, Math.max(0, (recordStart - now) * 1000));
     });
   }
 
@@ -82,9 +91,10 @@ export class Recorder {
 
   stop() {
     return new Promise((resolve, reject) => {
-      if (this._pendingTimer) {
+      if (this._pendingTimer || this._pendingTimer2) {
         clearTimeout(this._pendingTimer);
-        this._pendingTimer = null;
+        clearTimeout(this._pendingTimer2);
+        this._pendingTimer = this._pendingTimer2 = null;
         this._cleanup();
         resolve(null);
         return;
@@ -113,7 +123,8 @@ export class Recorder {
   }
 
   cancel() {
-    if (this._pendingTimer) { clearTimeout(this._pendingTimer); this._pendingTimer = null; }
+    if (this._pendingTimer)  { clearTimeout(this._pendingTimer);  this._pendingTimer  = null; }
+    if (this._pendingTimer2) { clearTimeout(this._pendingTimer2); this._pendingTimer2 = null; }
     if (this.mediaRecorder && this.recording) {
       this.mediaRecorder.onstop = null;
       try { this.mediaRecorder.stop(); } catch (_) {}

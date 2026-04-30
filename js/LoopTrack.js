@@ -210,19 +210,29 @@ export class LoopTrack {
     try { this.panNode.disconnect();  } catch (_) {}
   }
 
-  // Returns Float32Array of peak amplitudes (count samples) for radial waveform drawing.
+  // Returns normalized Float32Array of peak amplitudes for radial waveform drawing.
+  // Stereo buffers use the sum of both channels. Peak-normalizes so quiet sources remain visible.
   getWaveformSamples(count) {
     if (!this.buffer) return null;
-    const data = this.buffer.getChannelData(0);
-    const step = Math.max(1, Math.floor(data.length / count));
+    const ch0  = this.buffer.getChannelData(0);
+    const ch1  = this.buffer.numberOfChannels > 1 ? this.buffer.getChannelData(1) : null;
+    const step = Math.max(1, Math.floor(ch0.length / count));
     const out  = new Float32Array(count);
     for (let i = 0; i < count; i++) {
       let peak = 0;
       for (let j = 0; j < step; j++) {
-        const v = Math.abs(data[i * step + j] ?? 0);
+        const idx = i * step + j;
+        const v = ch1
+          ? Math.abs(ch0[idx] ?? 0) + Math.abs(ch1[idx] ?? 0)
+          : Math.abs(ch0[idx] ?? 0);
         if (v > peak) peak = v;
       }
       out[i] = peak;
+    }
+    const maxPeak = out.reduce((m, v) => v > m ? v : m, 0);
+    if (maxPeak > 0) {
+      const scale = 1 / maxPeak;
+      for (let i = 0; i < count; i++) out[i] *= scale;
     }
     return out;
   }
