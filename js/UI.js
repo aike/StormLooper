@@ -27,9 +27,10 @@ export class UI {
     this._vfxCanvas       = null;
     this._vfxRaf          = null;
 
-    this._globalDots   = [];
-    this._barCounterEl = null;
-    this._tapTimes     = [];
+    this._globalDots          = [];
+    this._barCounterEl        = null;
+    this._tapTimes            = [];
+    this._lastSelectedDeviceId = null;
   }
 
   build(root) {
@@ -584,7 +585,9 @@ export class UI {
 
     const src = ui.selectedSource;
     const BG  = { mic: '#0d1520', synth: '#110d22', file: '#0d1520' }[src] ?? '#141414';
-    const CLR = { mic: '#2860cc', synth: '#5533bb', file: '#5599ee' }[src] ?? '#2a3a4a';
+    const CLR = track.state === 'ready'
+      ? '#444444'
+      : ({ mic: '#2860cc', synth: '#cc0088', file: '#aabbdd' }[src] ?? '#2a3a4a');
 
     // Background fill
     G.beginPath(); G.arc(cx, cy, 80, 0, Math.PI * 2);
@@ -629,9 +632,9 @@ export class UI {
 
     // Track ID
     G.fillStyle = '#666';
-    G.font = 'bold 22px Segoe UI, system-ui, sans-serif';
+    G.font = 'bold 36px Segoe UI, system-ui, sans-serif';
     G.textAlign = 'center'; G.textBaseline = 'middle';
-    G.fillText(`#${track.id}`, cx, cy);
+    G.fillText(`${track.id}`, cx, cy);
 
     // Progress ring — background
     G.beginPath(); G.arc(cx, cy, 86, 0, Math.PI * 2);
@@ -774,11 +777,11 @@ export class UI {
       const devices = await navigator.mediaDevices.enumerateDevices();
       const inputs  = devices.filter(d => d.kind === 'audioinput');
       if (inputs.length <= 1) {
-        ui.devRow.style.display  = 'none';
-        ui.selectedDeviceId      = inputs[0]?.deviceId ?? null;
+        ui.devRow.style.display = 'none';
+        ui.selectedDeviceId     = inputs[0]?.deviceId ?? null;
         return;
       }
-      const prev = ui.selectedDeviceId || ui.devSel.value;
+      const prev = ui.selectedDeviceId ?? this._lastSelectedDeviceId;
       ui.devSel.innerHTML = '';
       inputs.forEach((d, i) => {
         const opt       = document.createElement('option');
@@ -788,9 +791,33 @@ export class UI {
       });
       if (prev) ui.devSel.value = prev;
       ui.selectedDeviceId  = ui.devSel.value || null;
-      ui.devSel.onchange   = () => { ui.selectedDeviceId = ui.devSel.value; };
+      ui.devSel.onchange   = () => {
+        ui.selectedDeviceId        = ui.devSel.value || null;
+        this._lastSelectedDeviceId = ui.selectedDeviceId;
+      };
       ui.devRow.style.display = '';
     } catch (_) {}
+  }
+
+  // If the recording ends within 0.5 beats of the next bar boundary, trim to the
+  // previous bar end. Returns the (possibly trimmed) buffer.
+  _maybeTrimToBar(buffer) {
+    const barDur       = this.transport.barDuration;
+    const beatDur      = this.transport.beatDuration;
+    const bufDur       = buffer.duration;
+    const completeBars = Math.floor(bufDur / barDur);
+    const remainder    = bufDur - completeBars * barDur; // time past the last bar boundary
+
+    if (completeBars === 0 || remainder <= 0 || remainder > 0.5 * beatDur) return buffer;
+
+    const newLength = Math.round(completeBars * barDur * buffer.sampleRate);
+    const newBuf    = this.engine.ctx.createBuffer(
+      buffer.numberOfChannels, newLength, buffer.sampleRate
+    );
+    for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+      newBuf.getChannelData(ch).set(buffer.getChannelData(ch).subarray(0, newLength));
+    }
+    return newBuf;
   }
 
   // ── Record Handler ────────────────────────────────────────────────────────
@@ -801,7 +828,7 @@ export class UI {
       try {
         const buffer = await this.recorder.stop();
         if (buffer) {
-          track.setBuffer(buffer);
+          track.setBuffer(this._maybeTrimToBar(buffer));
           ui._waveformSamples = track.getWaveformSamples(WAVE_N);
           ui.lockedSource = ui.selectedSource;
           this._applySourceLock(ui);
@@ -882,6 +909,7 @@ export class UI {
 
         ui.selectedSource = 'file';
         ui.lockedSource   = 'file';
+        if (ui.devRow) ui.devRow.style.display = 'none';
         if (ui.srcSel) ui.srcSel.querySelectorAll('.source-btn').forEach(b => b.classList.remove('active'));
         this._applySourceLock(ui);
         this._updateSynthVisibility();
@@ -978,12 +1006,45 @@ export class UI {
     });
     body.appendChild(adsrGrid);
 
+    const filterGrid = el('div', 'synth-controls');
+
+    const cutGroup = el('div', 'ctrl-group');
+    const cutLabel = el('div', 'ctrl-label'); cutLabel.textContent = 'LPF CUTOFF';
+    const cutRow = el('div', 'ctrl-row');
+    const cutSl = document.createElement('input');
+    cutSl.type = 'range'; cutSl.min = 20; cutSl.max = 20000; cutSl.step = 1; cutSl.value = 8000;
+    const cutVal = el('span', 'ctrl-value'); cutVal.textContent = '8000 Hz';
+    cutSl.addEventListener('input', () => {
+      this.synth.filter.frequency.value = parseFloat(cutSl.value);
+      cutVal.textContent = parseFloat(cutSl.value) >= 1000
+        ? (parseFloat(cutSl.value) / 1000).toFixed(1) + ' kHz'
+        : Math.round(cutSl.value) + ' Hz';
+    });
+    cutRow.append(cutSl, cutVal);
+    cutGroup.append(cutLabel, cutRow);
+
+    const resGroup = el('div', 'ctrl-group');
+    const resLabel = el('div', 'ctrl-label'); resLabel.textContent = 'RESONANCE';
+    const resRow = el('div', 'ctrl-row');
+    const resSl = document.createElement('input');
+    resSl.type = 'range'; resSl.min = 0.1; resSl.max = 20; resSl.step = 0.1; resSl.value = 1;
+    const resVal = el('span', 'ctrl-value'); resVal.textContent = '1.0';
+    resSl.addEventListener('input', () => {
+      this.synth.filter.Q.value = parseFloat(resSl.value);
+      resVal.textContent = parseFloat(resSl.value).toFixed(1);
+    });
+    resRow.append(resSl, resVal);
+    resGroup.append(resLabel, resRow);
+
+    filterGrid.append(cutGroup, resGroup);
+    body.appendChild(filterGrid);
+
     const svGroup = el('div', 'ctrl-group');
     const svLabel = el('div', 'ctrl-label'); svLabel.textContent = 'SYNTH VOLUME';
     const svRow = el('div', 'ctrl-row');
     const svSl = document.createElement('input');
-    svSl.type = 'range'; svSl.min = 0; svSl.max = 1; svSl.step = 0.01; svSl.value = 0.75;
-    const svVal = el('span', 'ctrl-value'); svVal.textContent = '75%';
+    svSl.type = 'range'; svSl.min = 0; svSl.max = 1; svSl.step = 0.01; svSl.value = 0.5;
+    const svVal = el('span', 'ctrl-value'); svVal.textContent = '50%';
     svSl.addEventListener('input', () => {
       this.synth.outputGain.gain.value = parseFloat(svSl.value);
       svVal.textContent = Math.round(svSl.value * 100) + '%';
@@ -1085,6 +1146,24 @@ export class UI {
       }
 
       if (e.target.isContentEditable || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+      // 0-9: toggle MUTE on tracks 1-10 (0 → track 10)
+      if (e.key >= '0' && e.key <= '9') {
+        const idx   = e.key === '0' ? 9 : parseInt(e.key) - 1;
+        const track = this.tracks[idx];
+        if (track) {
+          const ui = this._trackUIs.get(track.id);
+          if (track.state === 'playing') {
+            track.stop();
+          } else if (track.buffer) {
+            this.transport.ensureRunning();
+            track.startLooping(this.transport, this.transport.getNextBarTime());
+          }
+          if (ui) this._refreshTrackState(track, ui);
+        }
+        return;
+      }
+
       const k = e.key.toLowerCase();
       if (!pressed.has(k) && this._keyMap?.[k]) {
         pressed.add(k);

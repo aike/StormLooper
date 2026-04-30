@@ -8,11 +8,11 @@ A browser-based Looper application, built with vanilla JavaScript and the Web Au
 
 - **Unlimited loop tracks** — add as many tracks as you need
 - **Three input sources per track**
-  - 🎤 **MIC** — record from any connected microphone
+  - 🎤 **MIC** — record from any connected microphone; supports device selection when multiple inputs are available
   - 🎹 **SYNTH** — record the built-in synthesizer while you play
   - 📂 **FILE** — load any audio file (WAV, MP3, OGG, …)
 - **BPM clock** — set tempo with the +/− buttons, direct text input, or tap tempo
-- **Beat-aligned recording** — pressing REC waits for the next bar's beat 1 before capturing audio
+- **Beat-aligned recording with metronome countdown** — pressing REC waits for the next bar, plays a one-bar metronome click, then starts recording at the following bar head
 - **Bar-aligned playback** — loops always start at the next bar head after pressing PLAY or finishing a recording
 - **Smart loop quantization** based on recorded length:
   | Buffer length | Loop interval |
@@ -20,11 +20,15 @@ A browser-based Looper application, built with vanilla JavaScript and the Web Au
   | < 1.5 beats   | every 1 beat  |
   | 1.5 – 2.5 beats | every 2 beats |
   | > 2.5 beats   | rounded up to nearest bar |
+- **Recording tail trim** — if recording ends within 0.5 beats of the next bar boundary, the partial bar is discarded automatically
 - **Auto-play after recording** — the loop starts automatically once you stop recording
-- **Per-track controls** — volume fader, stereo pan, play/stop toggle
-- **Real-time position display** — progress bar and beat/bar counter per track
+- **Per-track controls** — volume fader, stereo pan, mute toggle, play/stop
+- **Normalized waveform display** — radial waveform always fills the circle regardless of recording level; stereo sources use the sum of both channels
+- **Waveform color by source** — MIC (blue), SYNTH (blue-purple), FILE (light blue); grayed out when muted
+- **Real-time position display** — radial progress ring and beat/bar counter per track
 - **Global beat indicator** — 4-dot bar display with bar counter in the transport strip
-- **Built-in synthesizer** — oscillator types (sine, square, sawtooth, triangle), ADSR envelope, octave selector, on-screen keyboard with PC keyboard support
+- **Organic VJ background** — animated blobs and Lissajous figures that don't interfere with track visibility
+- **Built-in synthesizer** — oscillator types (sine, square, sawtooth, triangle), ADSR envelope, resonant LPF (cutoff + Q), volume, octave selector, on-screen keyboard with PC keyboard support
 
 ## Requirements
 
@@ -55,9 +59,14 @@ Open `http://localhost:3000` (or whichever port your server uses) in your browse
 1. Click **＋ Add Track** to create a new track.
 2. Select a source: **MIC**, **SYNTH**, or **FILE**.
    - **FILE** opens a file picker immediately — the loop starts playing once the file loads.
-3. For MIC/SYNTH, click **REC**. The track badge shows `⏳ WAIT BEAT 1` while counting down to the next bar.
-4. Recording begins automatically at beat 1. Play your part.
-5. Click **REC** again (now labelled **STOP REC**) to finish. The loop starts playing from the next bar automatically.
+   - **MIC** shows an input device selector when multiple microphones are available. The last selected device is remembered for subsequent tracks.
+3. For MIC/SYNTH, click **REC**.
+   - The transport starts if not already running.
+   - The track badge shows `⏳ COUNTDOWN` while waiting for the next bar head.
+   - A one-bar metronome click plays (downbeat at 1 kHz, other beats at 600 Hz).
+   - Recording begins automatically at the next bar after the countdown.
+4. Play your part, then click **STOP REC**. The loop starts playing from the next bar automatically.
+   - If you stop within 0.5 beats of a bar boundary, the last partial bar is trimmed from the buffer.
 
 ### Playback controls
 
@@ -77,13 +86,18 @@ Open `http://localhost:3000` (or whichever port your server uses) in your browse
 
 Shortcuts are active when focus is not inside a text field or select element.
 
+#### Track Mute
+
+| Key | Action |
+|-----|--------|
+| `1` – `9` | Toggle mute on tracks 1–9 |
+| `0` | Toggle mute on track 10 |
+
 #### Recording
 
 | Key | Action |
 |-----|--------|
 | `Space` | Start REC on the selected track (or stop if already recording) |
-
-Works regardless of where focus is, as long as the PROPERTIES panel is open. Exception: does not fire when editing a track name.
 
 #### BPM
 
@@ -120,6 +134,22 @@ Works regardless of where focus is, as long as the PROPERTIES panel is open. Exc
 
 Keys can be held and released like a real keyboard — each key triggers note-on on press and note-off on release. Multiple keys can be held simultaneously.
 
+### Synthesizer Panel
+
+The synthesizer panel is shown only when **SYNTH** is selected as the recording source.
+
+| Control | Range | Default |
+|---------|-------|---------|
+| Oscillator | sine / square / sawtooth / triangle | sine |
+| Octave | 1 – 8 | 4 |
+| Attack | 0.001 – 2 s | 0.01 s |
+| Decay | 0.01 – 2 s | 0.15 s |
+| Sustain | 0 – 100% | 60% |
+| Release | 0.01 – 4 s | 0.4 s |
+| LPF Cutoff | 20 – 20 000 Hz | 8 000 Hz |
+| Resonance (Q) | 0.1 – 20 | 1.0 |
+| Synth Volume | 0 – 100% | 50% |
+
 ## Project Structure
 
 ```
@@ -132,7 +162,7 @@ StormLooper/
     ├── Transport.js    # BPM clock, beat scheduler, bar/boundary helpers
     ├── LoopTrack.js    # Single loop: LoopScheduler (bar-aligned playback), waveform
     ├── Recorder.js     # Beat-aligned mic/synth recording via MediaRecorder
-    ├── Synth.js        # Oscillator synth with ADSR envelope
+    ├── Synth.js        # Oscillator synth with ADSR, resonant LPF, detuned unison
     └── UI.js           # Entire DOM built in JavaScript; no HTML templates
 ```
 

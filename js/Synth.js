@@ -8,8 +8,17 @@ export class Synth {
     this.release = 0.4;
     this.octave = 4;
 
-    this.outputGain = audioEngine.ctx.createGain();
-    this.outputGain.gain.value = 0.75;
+    const ctx = audioEngine.ctx;
+
+    this.filter = ctx.createBiquadFilter();
+    this.filter.type = 'lowpass';
+    this.filter.frequency.value = 8000;
+    this.filter.Q.value = 8;
+
+    this.outputGain = ctx.createGain();
+    this.outputGain.gain.value = 0.5;
+
+    this.filter.connect(this.outputGain);
     this.outputGain.connect(audioEngine.masterGain);
 
     this.activeNotes = new Map();
@@ -43,7 +52,7 @@ export class Synth {
     }
 
     osc.connect(env);
-    env.connect(this.outputGain);
+    env.connect(this.filter);
 
     env.gain.setValueAtTime(0, now);
     env.gain.linearRampToValueAtTime(1, now + this.attack);

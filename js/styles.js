@@ -156,7 +156,7 @@ export function injectStyles() {
     .track-circle canvas { display: block; border-radius: 50%; }
 
     /* State / selection priority: playing < selected < recording */
-    .track-circle.playing   { box-shadow: 0 0 0 2px rgba(68,221,68,0.3); }
+    .track-circle.playing   { box-shadow: 0 0 0 2px rgba(34,76,255,0.3); }
     .track-circle.selected  { box-shadow: 0 0 0 3px var(--blue-bright), 0 0 12px rgba(68,153,255,0.35); }
     .track-circle.recording { box-shadow: 0 0 0 3px var(--red-bright),  0 0 14px rgba(255,68,68,0.45); }
 
