@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="210" viewBox="0 0 1180 210">
+<defs>
+<linearGradient id="g3" x1="0%" y1="0%" x2="100%" y2="0%">
+<stop offset="0%" stop-color="#38BDF8"/>
+<stop offset="100%" stop-color="#F472B6"/>
+</linearGradient>
+<filter id="glow">
+<feGaussianBlur stdDeviation="5" result="blur"/>
+<feMerge>
+<feMergeNode in="blur"/>
+<feMergeNode in="SourceGraphic"/>
+</feMerge>
+</filter>
+</defs>
+
+<text x="0" y="155"
+font-family="Tahoma, Arial, sans-serif"
+font-size="165"
+font-style="italic"
+font-weight="700"
+fill="url(#g3)"
+filter="url(#glow)">StormLooper</text>
+
+<circle cx="1040" cy="82" r="18" fill="#38BDF8"/>
+<circle cx="1085" cy="82" r="18" fill="#A855F7"/>
+<circle cx="1130" cy="82" r="18" fill="#F472B6"/>
+</svg>

@@ -82,7 +82,7 @@ export class UI {
   _makeHeader() {
     const hdr = el('div', 'header');
     const titles = el('div', '');
-    titles.innerHTML = `<div class="header-title">StormLooper</div><div class="header-subtitle">Web Audio Looper application</div>`;
+    titles.innerHTML = `<img src="logo.svg" alt="StormLooper" style="height:26px;display:block;"><div class="header-subtitle">Web Audio Looper application</div>`;
     hdr.appendChild(titles);
     hdr.appendChild(el('div', 'header-spacer'));
 
@@ -236,13 +236,13 @@ export class UI {
       const dim  = db === 0;
 
       G.save();
-      G.strokeStyle = dim ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.22)';
-      G.lineWidth   = dim ? 1 : 1;
-      if (!dim) G.setLineDash([3, 6]);
+      G.strokeStyle = dim ? 'rgba(160,210,255,0.75)' : 'rgba(200,220,255,0.38)';
+      G.lineWidth   = dim ? 1.5 : 1;
+      if (!dim) G.setLineDash([4, 5]);
       G.beginPath(); G.moveTo(0, y); G.lineTo(cW, y); G.stroke();
       G.restore();
 
-      G.fillStyle    = dim ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.45)';
+      G.fillStyle    = dim ? 'rgba(200,230,255,0.92)' : 'rgba(210,225,255,0.70)';
       G.textAlign    = 'left';
       G.textBaseline = 'bottom';
       G.fillText(db === 0 ? '0 dB' : `${db} dB`, 6, y - 2);
@@ -251,14 +251,14 @@ export class UI {
     // ── Center vertical line ──
     const cx = cW / 2;
     G.save();
-    G.strokeStyle = 'rgba(255,255,255,0.25)';
+    G.strokeStyle = 'rgba(180,210,255,0.45)';
     G.lineWidth   = 1;
-    G.setLineDash([3, 6]);
+    G.setLineDash([4, 5]);
     G.beginPath(); G.moveTo(cx, 0); G.lineTo(cx, cH); G.stroke();
     G.restore();
 
     // ── Pan / center labels ──
-    G.fillStyle    = 'rgba(255,255,255,0.5)';
+    G.fillStyle    = 'rgba(210,225,255,0.82)';
     G.textBaseline = 'top';
 
     G.textAlign = 'left';
@@ -333,9 +333,9 @@ export class UI {
         const br  = b.r * Math.min(W, H);
         const hue = (b.hue + t * 10) % 360;
         const grd = G.createRadialGradient(bx, by, 0, bx, by, br);
-        grd.addColorStop(0,   `hsla(${hue}, 80%, 55%, 0.08)`);
-        grd.addColorStop(0.5, `hsla(${hue}, 70%, 45%, 0.04)`);
-        grd.addColorStop(1,   `hsla(${hue}, 70%, 45%, 0)`);
+        grd.addColorStop(0,   `hsla(${hue}, 95%, 62%, 0.14)`); // FVX center color
+        grd.addColorStop(0.5, `hsla(${hue}, 85%, 52%, 0.08)`); // FVX mid color
+        grd.addColorStop(1,   `hsla(${hue}, 80%, 48%, 0)`);
         G.beginPath();
         G.arc(bx, by, br, 0, Math.PI * 2);
         G.fillStyle = grd;
@@ -354,8 +354,8 @@ export class UI {
           const y = fcy + Math.sin(f.b * θ) * ry;
           i === 0 ? G.moveTo(x, y) : G.lineTo(x, y);
         }
-        G.strokeStyle = `hsla(${hue}, 80%, 65%, 0.06)`;
-        G.lineWidth   = 1.5;
+        G.strokeStyle = `hsla(${hue}, 95%, 72%, 0.1)`; // Lissajous curve color
+        G.lineWidth   = 2;
         G.stroke();
       }
     };
@@ -593,37 +593,68 @@ export class UI {
     G.beginPath(); G.arc(cx, cy, 80, 0, Math.PI * 2);
     G.fillStyle = BG; G.fill();
 
-    // Waveform ring (evenodd donut: outer = waveform path, inner = circle at r=48)
-    // Samples are remapped so that circle position aligns with loop-span time,
-    // not raw buffer time. Silence pads the arc beyond bufDur.
+    // Waveform ring: maps each angular position to the buffer sample that plays
+    // there, accounting for LENGTH (span) and TIMING (phase shift / seek).
     const s = ui._waveformSamples;
-    if (s) {
-      const N        = s.length;
-      const span     = track.scheduler
+    if (s && track.buffer) {
+      const N    = s.length;
+      const span = track.scheduler
         ? track.scheduler.getLoopSpan()
         : track.computeLoopSpan(this.transport);
-      const fillFrac = (span && track.buffer)
-        ? Math.min(1, track.buffer.duration / span)
-        : 1;
 
-      G.beginPath();
-      for (let i = 0; i <= N; i++) {
-        const loopFrac = i / N;
-        // Map circle angle → loop time → buffer sample; silence past fillFrac
-        const amp = loopFrac < fillFrac
-          ? s[Math.min(N - 1, Math.floor((loopFrac / fillFrac) * N))]
-          : 0;
-        const a = loopFrac * Math.PI * 2 - Math.PI / 2;
-        const r = 48 + amp * 28;
-        if (i === 0) G.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
-        else         G.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+      if (span) {
+        const bufDur    = track.buffer.duration;
+        const beatDur   = this.transport.beatDuration;
+        const timing    = track.timing;
+        const spanBeats = Math.max(1, Math.round(span / beatDur));
+
+        // Mirror _scheduleOnce: compute phase parameters
+        let timingOffset = 0; // seconds before head plays (positive timing)
+        let seekSec      = 0; // seconds seeked into buffer (negative timing)
+        let tailStart    = 0; // buffer position where looping tail begins
+        if (timing > 0) {
+          const delayBeats = ((timing % spanBeats) + spanBeats) % spanBeats;
+          timingOffset = delayBeats * beatDur;
+          const rem = timingOffset % bufDur;
+          tailStart = rem < 1e-9 ? 0 : bufDur - rem;
+        } else if (timing < 0) {
+          const seekBeats = Math.abs(timing % spanBeats);
+          seekSec = seekBeats === 0 ? 0 : (seekBeats * beatDur) % bufDur;
+        }
+
+        G.beginPath();
+        for (let i = 0; i <= N; i++) {
+          const time = (i / N) * span; // loop time in seconds
+          let amp = 0;
+          if (timing >= 0) {
+            if (time < timingOffset) {
+              // Tail zone: buffer loops from tailStart
+              amp = s[Math.min(N - 1, Math.floor(((tailStart + time) % bufDur) / bufDur * N))];
+            } else if (time < timingOffset + bufDur) {
+              // Head zone: buffer from position 0
+              amp = s[Math.min(N - 1, Math.floor((time - timingOffset) / bufDur * N))];
+            }
+            // else silence
+          } else {
+            // Negative timing: seeked playback
+            const bufPos = seekSec + time;
+            if (bufPos < bufDur) {
+              amp = s[Math.min(N - 1, Math.floor(bufPos / bufDur * N))];
+            }
+            // else silence
+          }
+          const a = (i / N) * Math.PI * 2 - Math.PI / 2;
+          const r = 48 + amp * 28;
+          if (i === 0) G.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+          else         G.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+        }
+        G.closePath();
+        G.arc(cx, cy, 48, 0, Math.PI * 2); // inner hole
+        G.fillStyle = CLR;
+        G.globalAlpha = 0.75;
+        G.fill('evenodd');
+        G.globalAlpha = 1;
       }
-      G.closePath();
-      G.arc(cx, cy, 48, 0, Math.PI * 2); // inner hole
-      G.fillStyle = CLR;
-      G.globalAlpha = 0.75;
-      G.fill('evenodd');
-      G.globalAlpha = 1;
     }
 
     // Center fill over inner area
@@ -759,6 +790,36 @@ export class UI {
     });
     lenRow.append(lenLabel, lenSel);
     wrap.appendChild(lenRow);
+
+    // ── Timing number box ──
+    const timingRow = el('div', 'props-section');
+    const timingLabel = el('div', 'props-label'); timingLabel.textContent = 'TIMING';
+    const timingBox = el('div', 'num-box');
+    const applyTiming = (v) => {
+      track.timing = Math.max(-64, Math.min(64, Math.round(v)));
+      timingNum.textContent = track.timing;
+      if (track.scheduler) track.scheduler.reschedule();
+      this._drawTrackCircle(track, ui, 0);
+    };
+    const timingDown = btn('◀', 'btn btn-default btn-icon btn-sm', () => applyTiming(track.timing - 1));
+    const timingNum = el('span', 'num-value');
+    timingNum.textContent = track.timing;
+    timingNum.contentEditable = 'true';
+    timingNum.spellcheck = false;
+    timingNum.addEventListener('blur', () => {
+      const v = parseInt(timingNum.textContent);
+      if (!isNaN(v)) applyTiming(v);
+      timingNum.textContent = track.timing;
+    });
+    timingNum.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter')     { e.preventDefault(); timingNum.blur(); }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); applyTiming(track.timing + 1); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); applyTiming(track.timing - 1); }
+    });
+    const timingUp = btn('▶', 'btn btn-default btn-icon btn-sm', () => applyTiming(track.timing + 1));
+    timingBox.append(timingDown, timingNum, timingUp);
+    timingRow.append(timingLabel, timingBox);
+    wrap.appendChild(timingRow);
 
     // ── Device selector (MIC only, shown when multiple inputs are available) ──
     const devRow = el('div', 'props-section');
@@ -973,7 +1034,7 @@ export class UI {
 
     if (playToggleBtn) {
       playToggleBtn.textContent = 'MUTE';
-      playToggleBtn.className = track.state === 'ready' ? 'btn btn-amber active' : 'btn btn-default';
+      playToggleBtn.className = track.state === 'ready' ? 'btn btn-blue active' : 'btn btn-default';
     }
 
     this._drawTrackCircle(track, ui, 0);

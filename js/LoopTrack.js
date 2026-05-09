@@ -123,23 +123,84 @@ class LoopScheduler {
   }
 
   _scheduleOnce(startTime) {
-    const ctx = this.transport.ctx;
-    const now = ctx.currentTime;
-    if (startTime < now - 0.05) return; // skip if already past
+    const ctx     = this.transport.ctx;
+    const now     = ctx.currentTime;
+    if (startTime < now - 0.05) return;
 
-    const span   = this._getLoopSpan();
-    const bufDur = this.track.buffer.duration;
-    const src = ctx.createBufferSource();
-    src.buffer = this.track.buffer;
-    src.connect(this.track.gainNode);
-    src.start(Math.max(startTime, now));
-    src.stop(startTime + Math.min(bufDur, span));
-    this._sources.push(src);
-    src.onended = () => {
-      const i = this._sources.indexOf(src);
-      if (i >= 0) this._sources.splice(i, 1);
-      try { src.disconnect(); } catch (_) {}
+    const span      = this._getLoopSpan();
+    const bufDur    = this.track.buffer.duration;
+    const beatDur   = this.transport.beatDuration;
+    const timing    = this.track.timing;
+    const spanBeats = Math.max(1, Math.round(span / beatDur));
+
+    // Place a buffer source: when=scheduled start, bufOffset=buffer read position,
+    // stopAt=audio context time to stop, looping=wrap within [0,bufDur).
+    // Adjusts bufOffset for late scheduling so audio stays in sync.
+    const place = (when, bufOffset, stopAt, looping = false) => {
+      if (stopAt - when < 1e-9) return;
+      const t    = Math.max(when, now);
+      if (t >= stopAt) return;
+      const skip = t - when; // seconds already elapsed since scheduled start
+      const s = ctx.createBufferSource();
+      s.buffer = this.track.buffer;
+      if (looping) {
+        s.loop = true; s.loopStart = 0; s.loopEnd = bufDur;
+        s.connect(this.track.gainNode);
+        s.start(t, (bufOffset + skip) % bufDur);
+      } else {
+        s.connect(this.track.gainNode);
+        s.start(t, bufOffset + skip);
+      }
+      s.stop(stopAt);
+      this._sources.push(s);
+      s.onended = () => {
+        const i = this._sources.indexOf(s);
+        if (i >= 0) this._sources.splice(i, 1);
+        try { s.disconnect(); } catch (_) {}
+      };
     };
+
+    if (timing === 0) {
+      place(startTime, 0, startTime + Math.min(bufDur, span));
+      return;
+    }
+
+    if (timing > 0) {
+      // Positive TIMING: delay the head by N beats; tail of buffer fills the gap.
+      // delayBeats is wrapped to [0, spanBeats) so timing > span is handled.
+      const delayBeats = ((timing % spanBeats) + spanBeats) % spanBeats;
+      const delay      = delayBeats * beatDur;
+
+      if (delay < 1e-9) {
+        place(startTime, 0, startTime + Math.min(bufDur, span));
+        return;
+      }
+
+      // Tail fragment: looping buffer starting at position (bufDur - delay%bufDur).
+      // This guarantees the looping tail ends exactly at buffer position 0,
+      // so the transition into the head fragment is seamless.
+      const rem       = delay % bufDur;
+      const tailStart = rem < 1e-9 ? 0 : bufDur - rem;
+      place(startTime, tailStart, startTime + delay, true);
+
+      // Head fragment: buffer from position 0 after the delay
+      const headDur = Math.min(bufDur, span - delay);
+      place(startTime + delay, 0, startTime + delay + headDur);
+
+    } else {
+      // Negative TIMING: seek |timing| beats into the buffer before playing.
+      // seekBeats is wrapped to [0, spanBeats) using JS remainder (sign follows dividend).
+      const seekBeats = Math.abs(timing % spanBeats);
+      const seekSec   = seekBeats === 0 ? 0 : (seekBeats * beatDur) % bufDur;
+
+      if (seekSec < 1e-9) {
+        place(startTime, 0, startTime + Math.min(bufDur, span));
+        return;
+      }
+
+      const playDur = Math.min(bufDur - seekSec, span);
+      place(startTime, seekSec, startTime + playDur);
+    }
   }
 
   _stopSources() {
@@ -170,6 +231,7 @@ export class LoopTrack {
     this.pan        = 0;
     this.muted      = false;
     this.lengthMode = '4bars';
+    this.timing     = 0;
     this.gainNode.gain.value = this.volume;
     this.panNode.pan.value   = this.pan;
 

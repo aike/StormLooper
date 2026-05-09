@@ -156,8 +156,8 @@ export function injectStyles() {
     .track-circle canvas { display: block; border-radius: 50%; }
 
     /* State / selection priority: playing < selected < recording */
-    .track-circle.playing   { box-shadow: 0 0 0 2px rgba(34,76,255,0.3); }
-    .track-circle.selected  { box-shadow: 0 0 0 3px var(--blue-bright), 0 0 12px rgba(68,153,255,0.35); }
+    .track-circle.playing   { box-shadow: 0 0 0 2px rgba(0, 47, 255, 0.6); }
+    .track-circle.selected  { box-shadow: 0 0 0 3px var(--blue-bright), 0 0 12px rgba(147, 196, 255, 0.6); }
     .track-circle.recording { box-shadow: 0 0 0 3px var(--red-bright),  0 0 14px rgba(255,68,68,0.45); }
 
     /* ── Properties Panel ── */
@@ -500,14 +500,35 @@ export function injectStyles() {
       font-size: 22px;
       font-weight: 700;
       font-variant-numeric: tabular-nums;
-      color: var(--amber-bright);
+      color: var(--blue-bright);
       min-width: 52px;
       text-align: center;
       cursor: pointer;
       border-bottom: 1px solid #444;
       padding: 0 4px;
     }
-    .bpm-value:focus { outline: none; border-color: var(--amber-bright); }
+    .bpm-value:focus { outline: none; border-color: var(--blue-bright); }
+
+    /* ── Compact number box (reused for TIMING etc.) ── */
+    .num-box {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+    }
+    .num-value {
+      font-size: 13px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--blue-bright);
+      min-width: 28px;
+      text-align: center;
+      cursor: text;
+      border-bottom: 1px solid #444;
+      padding: 0 4px;
+      flex: 1;
+    }
+    .num-value:focus { outline: none; border-color: var(--blue-bright); }
     .tap-btn {
       padding: 4px 10px;
       font-size: 11px;
