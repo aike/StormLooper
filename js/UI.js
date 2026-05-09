@@ -601,7 +601,7 @@ export class UI {
       const N        = s.length;
       const span     = track.scheduler
         ? track.scheduler.getLoopSpan()
-        : (track.buffer ? this.transport.computeLoopSpan(track.buffer.duration) : null);
+        : track.computeLoopSpan(this.transport);
       const fillFrac = (span && track.buffer)
         ? Math.min(1, track.buffer.duration / span)
         : 1;
@@ -731,6 +731,34 @@ export class UI {
     srcSel.appendChild(fileSb);
     srcRow.append(srcLabel, srcSel);
     wrap.appendChild(srcRow);
+
+    // ── Length selector ──
+    const lenRow = el('div', 'props-section');
+    const lenLabel = el('div', 'props-label'); lenLabel.textContent = 'LENGTH';
+    const lenSel = document.createElement('select');
+    lenSel.style.flex = '1';
+    [
+      { value: '1beat',  label: '1 Beat'  },
+      { value: '2beats', label: '2 Beats' },
+      { value: '1bar',   label: '1 Bar'   },
+      { value: '2bars',  label: '2 Bars'  },
+      { value: '4bars',  label: '4 Bars'  },
+      { value: '8bars',  label: '8 Bars'  },
+      { value: '16bars', label: '16 Bars' },
+      { value: 'auto',   label: 'Auto'    },
+    ].forEach(opt => {
+      const o = document.createElement('option');
+      o.value = opt.value; o.textContent = opt.label;
+      lenSel.appendChild(o);
+    });
+    lenSel.value = track.lengthMode;
+    lenSel.addEventListener('change', () => {
+      track.lengthMode = lenSel.value;
+      if (track.scheduler) track.scheduler.reschedule();
+      this._drawTrackCircle(track, ui, 0);
+    });
+    lenRow.append(lenLabel, lenSel);
+    wrap.appendChild(lenRow);
 
     // ── Device selector (MIC only, shown when multiple inputs are available) ──
     const devRow = el('div', 'props-section');

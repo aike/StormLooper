@@ -1,5 +1,26 @@
 let trackIdCounter = 1;
 
+// ── Loop span calculation ──────────────────────────────────────────────────────
+// mode: '1beat'|'2beats'|'1bar'|'2bars'|'4bars'|'8bars'|'16bars'|'auto'
+function _computeSpan(mode, bufDur, beatDur, barDur) {
+  switch (mode) {
+    case '1beat':  return beatDur;
+    case '2beats': return beatDur * 2;
+    case '1bar':   return barDur;
+    case '2bars':  return barDur * 2;
+    case '4bars':  return barDur * 4;
+    case '8bars':  return barDur * 8;
+    case '16bars': return barDur * 16;
+    case 'auto':
+    default: {
+      const beats = bufDur / beatDur;
+      if (beats < 1.5) return beatDur;
+      if (beats < 2.5) return beatDur * 2;
+      return Math.max(barDur, Math.ceil(bufDur / barDur + 1e-6) * barDur);
+    }
+  }
+}
+
 // ── LoopScheduler ─────────────────────────────────────────────────────────────
 // Manages bar-aligned, self-rescheduling playback of one LoopTrack.
 class LoopScheduler {
@@ -34,18 +55,13 @@ class LoopScheduler {
     this._scheduleLoop(this._gen);
   }
 
-  // Quantized loop span based on buffer duration vs beat/bar lengths:
-  //   < 1.5 beats  → 1 beat
-  //   < 2.5 beats  → 2 beats
-  //   otherwise    → round up to nearest bar
   getLoopSpan() {
-    const beatDur = this.transport.beatDuration;
-    const barDur  = this.transport.barDuration;
-    const dur     = this.track.buffer.duration;
-    const beats   = dur / beatDur;
-    if (beats < 1.5)      return beatDur;
-    if (beats < 2.5)      return beatDur * 2;
-    return Math.max(barDur, Math.ceil(dur / barDur + 1e-6) * barDur);
+    return _computeSpan(
+      this.track.lengthMode,
+      this.track.buffer.duration,
+      this.transport.beatDuration,
+      this.transport.barDuration
+    );
   }
 
   // Position info for UI: fraction through loop (0-1), beat in bar (0-3), etc.
@@ -68,24 +84,21 @@ class LoopScheduler {
     // Global beat info from transport
     const info = this.transport.getBeatInfo();
 
-    // Unit and position depend on quantization mode
-    const beats = bufDur / beatDur;
+    // Unit and position depend on loop span
+    const spanBeats = span / beatDur;
     let unitLabel, stepInLoop, totalSteps;
-    if (beats < 1.5) {
-      // 1-beat loop: show beat fraction only
+    if (spanBeats < 1.5) {
       unitLabel   = 'Beat';
       stepInLoop  = 0;
       totalSteps  = 1;
-    } else if (beats < 2.5) {
-      // 2-beat loop: show which beat (1 or 2)
+    } else if (spanBeats < 2.5) {
       unitLabel   = 'Beat';
       stepInLoop  = Math.floor(elapsed / beatDur);
       totalSteps  = 2;
     } else {
-      // Bar-aligned: show bar number
       unitLabel   = 'Bar';
       stepInLoop  = Math.floor(elapsed / barDur);
-      totalSteps  = Math.max(1, Math.ceil(bufDur / barDur));
+      totalSteps  = Math.max(1, Math.round(span / barDur));
     }
 
     return { frac, inBuffer, unitLabel, stepInLoop, totalSteps, beat: info.beat, fraction: info.fraction };
@@ -114,11 +127,13 @@ class LoopScheduler {
     const now = ctx.currentTime;
     if (startTime < now - 0.05) return; // skip if already past
 
+    const span   = this._getLoopSpan();
+    const bufDur = this.track.buffer.duration;
     const src = ctx.createBufferSource();
     src.buffer = this.track.buffer;
     src.connect(this.track.gainNode);
     src.start(Math.max(startTime, now));
-    src.stop(startTime + this.track.buffer.duration);
+    src.stop(startTime + Math.min(bufDur, span));
     this._sources.push(src);
     src.onended = () => {
       const i = this._sources.indexOf(src);
@@ -151,9 +166,10 @@ export class LoopTrack {
     this.gainNode.connect(this.panNode);
     this.panNode.connect(audioEngine.masterGain);
 
-    this.volume = 0.8;
-    this.pan    = 0;
-    this.muted  = false;
+    this.volume     = 0.8;
+    this.pan        = 0;
+    this.muted      = false;
+    this.lengthMode = '4bars';
     this.gainNode.gain.value = this.volume;
     this.panNode.pan.value   = this.pan;
 
@@ -166,6 +182,11 @@ export class LoopTrack {
   setBuffer(buffer) {
     this.buffer = buffer;
     this.state = 'ready';
+  }
+
+  computeLoopSpan(transport) {
+    if (!this.buffer) return null;
+    return _computeSpan(this.lengthMode, this.buffer.duration, transport.beatDuration, transport.barDuration);
   }
 
   // Start bar-aligned looping via the scheduler
