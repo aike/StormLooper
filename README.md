@@ -1,6 +1,6 @@
 # StormLooper
 
-A browser-based Looper application, built with vanilla JavaScript and the Web Audio API. No build step, no dependencies.
+A browser-based looper application built with vanilla JavaScript and the Web Audio API. No build step, no dependencies.
 
 ![StormLooper screenshot](ss.png)
 
@@ -13,22 +13,16 @@ A browser-based Looper application, built with vanilla JavaScript and the Web Au
   - 📂 **FILE** — load any audio file (WAV, MP3, OGG, …)
 - **BPM clock** — set tempo with the +/− buttons, direct text input, or tap tempo
 - **Beat-aligned recording with metronome countdown** — pressing REC waits for the next bar, plays a one-bar metronome click, then starts recording at the following bar head
-- **Bar-aligned playback** — loops always start at the next bar head after pressing PLAY or finishing a recording
-- **Smart loop quantization** based on recorded length:
-  | Buffer length | Loop interval |
-  |---------------|---------------|
-  | < 1.5 beats   | every 1 beat  |
-  | 1.5 – 2.5 beats | every 2 beats |
-  | > 2.5 beats   | rounded up to nearest bar |
-- **Recording tail trim** — if recording ends within 0.5 beats of the next bar boundary, the partial bar is discarded automatically
-- **Auto-play after recording** — the loop starts automatically once you stop recording
-- **Per-track controls** — volume fader, stereo pan, mute toggle, play/stop
-- **Normalized waveform display** — radial waveform always fills the circle regardless of recording level; stereo sources use the sum of both channels
-- **Waveform color by source** — MIC (blue), SYNTH (blue-purple), FILE (light blue); grayed out when muted
-- **Real-time position display** — radial progress ring and beat/bar counter per track
+- **Bar-aligned playback** — loops always start at the next bar head
+- **Per-track LENGTH control** — sets the loop period independently of recording length
+- **Per-track TIMING control** — shifts the playback phase within the loop period
+- **Drag-to-position tracks** — drag a track circle to set volume (vertical) and stereo pan (horizontal)
+- **Normalized radial waveform** — always fills the circle regardless of recording level; reflects LENGTH and TIMING visually
+- **Real-time progress ring** — shows playback position within the current loop period
 - **Global beat indicator** — 4-dot bar display with bar counter in the transport strip
-- **Organic VJ background** — animated blobs and Lissajous figures that don't interfere with track visibility
-- **Built-in synthesizer** — oscillator types (sine, square, sawtooth, triangle), ADSR envelope, resonant LPF (cutoff + Q), volume, octave selector, on-screen keyboard with PC keyboard support
+- **Recording tail trim** — if recording ends within 0.5 beats of a bar boundary, the partial bar is discarded automatically
+- **Organic VFX background** — animated blobs and Lissajous figures behind the track canvas
+- **Built-in synthesizer** — sine/square/sawtooth/triangle oscillator, ADSR envelope, resonant LPF, detuned unison, on-screen keyboard with PC keyboard support
 
 ## Requirements
 
@@ -62,50 +56,90 @@ Open `http://localhost:3000` (or whichever port your server uses) in your browse
    - **MIC** shows an input device selector when multiple microphones are available. The last selected device is remembered for subsequent tracks.
 3. For MIC/SYNTH, click **REC**.
    - The transport starts if not already running.
-   - The track badge shows `⏳ COUNTDOWN` while waiting for the next bar head.
+   - The track badge shows `⏳ WAIT` while waiting for the next bar head.
    - A one-bar metronome click plays (downbeat at 1 kHz, other beats at 600 Hz).
    - Recording begins automatically at the next bar after the countdown.
 4. Play your part, then click **STOP REC**. The loop starts playing from the next bar automatically.
-   - If you stop within 0.5 beats of a bar boundary, the last partial bar is trimmed from the buffer.
+   - If you stop within 0.5 beats of a bar boundary, the last partial bar is trimmed automatically.
 
-### Playback controls
+### Volume and pan
 
-| Button | Behaviour |
-|--------|-----------|
-| **▶ PLAY** | Waits for the next bar head, then starts looping from the beginning |
-| **⏹ STOP** | Stops immediately and resets the playback position to the start |
+Drag a track circle anywhere in the track area:
+
+- **Vertical position** → volume (top = 0 dB, bottom = −∞). dB reference lines are drawn in the background.
+- **Horizontal position** → stereo pan (left edge = hard L, right edge = hard R, center line = center).
+
+Clicking without dragging selects the track and shows its properties.
+
+### LENGTH
+
+Controls the loop period independently of the recording length.
+
+| Value | Loop period |
+|-------|-------------|
+| 1 Beat | 1 beat |
+| 2 Beats | 2 beats |
+| 1 Bar | 1 bar (4 beats) |
+| 2 Bars | 2 bars |
+| 4 Bars | 4 bars *(default)* |
+| 8 Bars | 8 bars |
+| 16 Bars | 16 bars |
+| Auto | shortest bar count that fits the recording |
+
+- If LENGTH is **shorter** than the recording, playback is cut off and the loop restarts.
+- If LENGTH is **longer** than the recording, silence fills the remainder until the next loop start.
+
+Changes take effect at the next bar boundary.
+
+### TIMING
+
+Shifts the playback phase within the loop period. Range: −64 to +64 beats. Default: 0.
+
+Use the **◀ / ▶** buttons to step ±1 beat, or click the number to type a value directly.
+
+| Value | Effect |
+|-------|--------|
+| `0` | Sample head plays at the loop start (bar head) |
+| `+N` | Sample head plays N beats after the loop start; the buffer tail loops to fill the gap before it |
+| `−N` | Playback starts N beats into the buffer; the head of the buffer is skipped |
+
+When `|TIMING|` exceeds the loop period in beats, the value wraps with modulo arithmetic.
+
+The radial waveform display rotates and rescales to show exactly which part of the buffer plays at each angular position.
+
+Changes take effect at the next bar boundary.
 
 ### BPM
 
-- Use **◀ / ▶** to step ±1 BPM (hold Shift for ±10).
-- Click the BPM number to type a value directly; confirm with Enter.
-- Click **TAP** repeatedly to set tempo by feel (uses the average of the last 8 taps within 3 seconds).
-- Changing BPM while loops are playing takes effect immediately.
+- Use **◀ / ▶** to step ±1 BPM (hold **Shift** for ±10).
+- Click the BPM number to type a value directly; confirm with **Enter**.
+- Click **TAP** repeatedly to set tempo by feel (average of the last 8 taps within 3 seconds).
+- Changing BPM while loops are playing takes effect immediately with no glitches.
 
 ### Keyboard Shortcuts
 
 Shortcuts are active when focus is not inside a text field or select element.
 
-#### Track Mute
+#### Track mute / unmute
 
 | Key | Action |
 |-----|--------|
-| `1` – `9` | Toggle mute on tracks 1–9 |
-| `0` | Toggle mute on track 10 |
+| `1` – `9` | Toggle play/stop on tracks 1–9 |
+| `0` | Toggle play/stop on track 10 |
 
 #### Recording
 
 | Key | Action |
 |-----|--------|
-| `Space` | Start REC on the selected track (or stop if already recording) |
+| `Space` | REC toggle on the selected track |
 
-#### BPM
+#### BPM field (when focused)
 
-| Key / Gesture | Action |
-|---|---|
-| **↑** (BPM field focused) | BPM +1 |
-| **↓** (BPM field focused) | BPM −1 |
-| **Enter** (BPM field focused) | Confirm value |
+| Key | Action |
+|-----|--------|
+| `↑` | BPM +1 |
+| `↓` | BPM −1 |
+| `Enter` | Confirm value |
 | **Shift** + click ◀ | BPM −10 |
 | **Shift** + click ▶ | BPM +10 |
 
@@ -155,14 +189,16 @@ The synthesizer panel is shown only when **SYNTH** is selected as the recording 
 ```
 StormLooper/
 ├── index.html          # Minimal shell — just mounts #app and loads main.js
+├── logo.svg            # Logo displayed in the header
 └── js/
-    ├── main.js         # Bootstrap: init overlay, AudioContext gate
+    ├── main.js         # Bootstrap: init overlay, AudioContext gate, wiring
     ├── styles.js       # All CSS injected as a <style> tag at runtime
     ├── AudioEngine.js  # AudioContext, master gain, dynamics compressor
     ├── Transport.js    # BPM clock, beat scheduler, bar/boundary helpers
-    ├── LoopTrack.js    # Single loop: LoopScheduler (bar-aligned playback), waveform
+    ├── LoopTrack.js    # Single loop slot: LoopScheduler, LENGTH/TIMING logic, waveform
     ├── Recorder.js     # Beat-aligned mic/synth recording via MediaRecorder
-    ├── Synth.js        # Oscillator synth with ADSR, resonant LPF, detuned unison
+    ├── Metronome.js    # Audio-precise click track for recording countdown
+    ├── Synth.js        # Oscillator synth: ADSR, resonant LPF, detuned unison
     └── UI.js           # Entire DOM built in JavaScript; no HTML templates
 ```
 
