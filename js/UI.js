@@ -530,23 +530,21 @@ export class UI {
     let dragging = false, moved = false;
     let startX, startY, startLeft, startTop;
 
-    circle.addEventListener('mousedown', (e) => {
-      if (e.button !== 0) return;
-      e.preventDefault();
-      dragging = true;
-      moved    = false;
-      startX   = e.clientX;
-      startY   = e.clientY;
-      const cr = circle.getBoundingClientRect();
-      const pr = this._tracksContainer.getBoundingClientRect();
+    const onStart = (clientX, clientY) => {
+      dragging  = true;
+      moved     = false;
+      startX    = clientX;
+      startY    = clientY;
+      const cr  = circle.getBoundingClientRect();
+      const pr  = this._tracksContainer.getBoundingClientRect();
       startLeft = cr.left - pr.left;
       startTop  = cr.top  - pr.top;
-    });
+    };
 
-    const onMove = (e) => {
+    const onMove = (clientX, clientY) => {
       if (!dragging) return;
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
+      const dx = clientX - startX;
+      const dy = clientY - startY;
       if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
 
       const cW = this._tracksContainer.clientWidth;
@@ -562,17 +560,41 @@ export class UI {
       track.setVolume(Math.max(0, Math.min(1, 1 - top / rangeH)));
     };
 
-    const onUp = () => {
+    const onEnd = () => {
       if (!dragging) return;
       dragging = false;
       if (!moved) this._selectTrack(track);
     };
 
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup',   onUp);
+    // ── Mouse ──
+    circle.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      onStart(e.clientX, e.clientY);
+    });
+    const onMouseMove = (e) => onMove(e.clientX, e.clientY);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup',   onEnd);
+
+    // ── Touch ──
+    circle.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      onStart(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: false });
+    const onTouchMove = (e) => {
+      e.preventDefault();
+      if (e.touches.length > 0) onMove(e.touches[0].clientX, e.touches[0].clientY);
+    };
+    document.addEventListener('touchmove',   onTouchMove, { passive: false });
+    document.addEventListener('touchend',    onEnd);
+    document.addEventListener('touchcancel', onEnd);
+
     ui._dragCleanup = () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup',   onUp);
+      document.removeEventListener('mousemove',   onMouseMove);
+      document.removeEventListener('mouseup',     onEnd);
+      document.removeEventListener('touchmove',   onTouchMove);
+      document.removeEventListener('touchend',    onEnd);
+      document.removeEventListener('touchcancel', onEnd);
     };
   }
 
