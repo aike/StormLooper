@@ -86,6 +86,52 @@ export class UI {
     hdr.appendChild(titles);
     hdr.appendChild(el('div', 'header-spacer'));
 
+    const delaySection = el('div', 'master-section');
+    const delayLabel = el('span', 'master-label'); delayLabel.textContent = 'DELAY';
+    const delaySlider = document.createElement('input');
+    delaySlider.type = 'range'; delaySlider.min = '100'; delaySlider.max = '500';
+    delaySlider.step = '1'; delaySlider.value = '250';
+    delaySlider.style.width = '80px';
+    const delayValEl = el('span', '');
+    delayValEl.style.cssText = 'font-size:10px;color:var(--text-dim);min-width:40px;text-align:right';
+    delayValEl.textContent = '250ms';
+    delaySlider.addEventListener('input', () => {
+      const v = parseInt(delaySlider.value);
+      this.engine.setDelayTime(v);
+      delayValEl.textContent = v + 'ms';
+    });
+    delaySection.append(delayLabel, delaySlider, delayValEl);
+    hdr.appendChild(delaySection);
+
+    const filterSection = el('div', 'master-section');
+    const filterLabel = el('span', 'master-label'); filterLabel.textContent = 'FILTER';
+    const filterSlider = document.createElement('input');
+    filterSlider.type = 'range'; filterSlider.min = '-1'; filterSlider.max = '1';
+    filterSlider.step = '0.01'; filterSlider.value = '0';
+    filterSlider.style.cssText = 'width:80px;--knob-fill:var(--cyan)';
+    filterSlider.className = 'master-filter-slider';
+    const filterValEl = el('span', '');
+    filterValEl.style.cssText = 'font-size:10px;color:var(--text-dim);min-width:64px;text-align:right';
+    filterValEl.textContent = 'FLAT';
+    filterSlider.addEventListener('input', () => {
+      const v = parseFloat(filterSlider.value);
+      this.engine.setMasterFilter(v);
+      if (v === 0) {
+        filterValEl.textContent = 'FLAT';
+        filterValEl.style.color = 'var(--text-dim)';
+      } else if (v < 0) {
+        const freq = 20000 * Math.pow(20 / 20000, Math.abs(v));
+        filterValEl.textContent = 'LPF ' + _fmtHz(freq);
+        filterValEl.style.color = 'var(--blue-bright)';
+      } else {
+        const freq = 20 * Math.pow(20000 / 20, v);
+        filterValEl.textContent = 'HPF ' + _fmtHz(freq);
+        filterValEl.style.color = 'var(--amber-bright)';
+      }
+    });
+    filterSection.append(filterLabel, filterSlider, filterValEl);
+    hdr.appendChild(filterSection);
+
     const master = el('div', 'master-section');
     master.innerHTML = `
       <span class="master-label">MASTER VOL</span>
@@ -843,6 +889,23 @@ export class UI {
     timingRow.append(timingLabel, timingBox);
     wrap.appendChild(timingRow);
 
+    // ── Delay Send ──
+    const sendRow = el('div', 'props-section');
+    const sendLabel = el('div', 'props-label'); sendLabel.textContent = 'DELAY SND';
+    const sendSl = document.createElement('input');
+    sendSl.type = 'range'; sendSl.min = '0'; sendSl.max = '1'; sendSl.step = '0.01'; sendSl.value = '0';
+    const sendValEl = el('span', '');
+    sendValEl.style.cssText = 'font-size:10px;color:var(--text-dim);min-width:32px;text-align:right';
+    sendValEl.textContent = '0%';
+    sendSl.addEventListener('input', () => {
+      const v = parseFloat(sendSl.value);
+      track.setSend(v);
+      sendValEl.textContent = Math.round(v * 100) + '%';
+      sendValEl.style.color = v > 0 ? 'var(--purple)' : 'var(--text-dim)';
+    });
+    sendRow.append(sendLabel, sendSl, sendValEl);
+    wrap.appendChild(sendRow);
+
     // ── Device selector (MIC only, shown when multiple inputs are available) ──
     const devRow = el('div', 'props-section');
     devRow.style.display = 'none';
@@ -1317,4 +1380,8 @@ function btn(html, className, onClick) {
   b.innerHTML = html;
   if (onClick) b.addEventListener('click', onClick);
   return b;
+}
+
+function _fmtHz(freq) {
+  return freq >= 1000 ? (freq / 1000).toFixed(1) + 'k' : Math.round(freq) + 'Hz';
 }

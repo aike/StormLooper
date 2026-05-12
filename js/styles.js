@@ -72,6 +72,12 @@ export function injectStyles() {
       color: var(--text-dim);
       letter-spacing: 1px;
     }
+    .master-filter-slider {
+      background: linear-gradient(to right, var(--knob-track) 50%, var(--knob-track) 50%);
+      position: relative;
+    }
+    .master-filter-slider::-webkit-slider-thumb { background: var(--cyan); }
+    .master-filter-slider:hover::-webkit-slider-thumb { background: #44dddd; }
 
     /* ── Main Layout ── */
     .main-layout {

@@ -224,16 +224,21 @@ export class LoopTrack {
     const ctx = audioEngine.ctx;
     this.gainNode = ctx.createGain();
     this.panNode  = ctx.createStereoPanner();
+    this.sendGain = ctx.createGain();
     this.gainNode.connect(this.panNode);
     this.panNode.connect(audioEngine.masterGain);
+    this.panNode.connect(this.sendGain);
+    this.sendGain.connect(audioEngine.delaySendInput);
 
     this.volume     = 0.8;
     this.pan        = 0;
+    this.send       = 0;
     this.muted      = false;
     this.lengthMode = '4bars';
     this.timing     = 0;
-    this.gainNode.gain.value = this.volume;
-    this.panNode.pan.value   = this.pan;
+    this.gainNode.gain.value  = this.volume;
+    this.panNode.pan.value    = this.pan;
+    this.sendGain.gain.value  = this.send;
 
     this.scheduler = null;
 
@@ -287,10 +292,16 @@ export class LoopTrack {
     this.panNode.pan.value = pan;
   }
 
+  setSend(val) {
+    this.send = val;
+    this.sendGain.gain.value = val;
+  }
+
   dispose() {
     this.stopLooping();
-    try { this.gainNode.disconnect(); } catch (_) {}
-    try { this.panNode.disconnect();  } catch (_) {}
+    try { this.gainNode.disconnect();  } catch (_) {}
+    try { this.panNode.disconnect();   } catch (_) {}
+    try { this.sendGain.disconnect();  } catch (_) {}
   }
 
   // Returns normalized Float32Array of peak amplitudes for radial waveform drawing.
