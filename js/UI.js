@@ -2,8 +2,7 @@ import { LoopTrack } from './LoopTrack.js';
 import { Recorder } from './Recorder.js';
 import { Metronome } from './Metronome.js';
 
-const CIRCLE_D = 192;  // circle diameter px
-const WAVE_N   = 360;  // waveform sample count (1 per degree)
+const WAVE_N = 360;  // waveform sample count (1 per degree)
 
 export class UI {
   constructor(audioEngine, synth, transport) {
@@ -39,6 +38,8 @@ export class UI {
     this._masterVolSlider = null;
     this._masterVolVal    = null;
     this._bpmValEl        = null;
+
+    this._circleD = 192;
   }
 
   build(root) {
@@ -82,7 +83,7 @@ export class UI {
     this._bindKeyboard();
 
     requestAnimationFrame(() => this._drawGrid());
-    new ResizeObserver(() => { this._drawGrid(); this._repositionAllTracks(); }).observe(this._tracksContainer);
+    new ResizeObserver(() => { this._drawGrid(); this._resizeCircles(); this._repositionAllTracks(); }).observe(this._tracksContainer);
     this._startVFX();
   }
 
@@ -276,14 +277,14 @@ export class UI {
     canvas.height = cH;
 
     const G      = canvas.getContext('2d');
-    const rangeH = Math.max(1, cH - CIRCLE_D);
+    const rangeH = Math.max(1, cH - this._circleD);
 
     G.font = '10px Segoe UI, system-ui, sans-serif';
 
     // ── Horizontal dB lines ──
     for (const db of [0, -6, -12, -18, -24, -36]) {
       const vol  = db === 0 ? 1 : Math.pow(10, db / 20);
-      const y    = (1 - vol) * rangeH + CIRCLE_D / 2;
+      const y    = (1 - vol) * rangeH + this._circleD / 2;
       const dim  = db === 0;
 
       G.save();
@@ -322,19 +323,40 @@ export class UI {
     G.fillText('R', cW - 6, 6);
   }
 
+  // ── Circle size management ────────────────────────────────────────────────
+  _updateCircleD() {
+    const cW = this._tracksContainer?.clientWidth || 0;
+    this._circleD = cW ? Math.max(50, Math.floor(cW / 12)) : 192;
+  }
+
+  _resizeCircles() {
+    this._updateCircleD();
+    const d = this._circleD;
+    for (const track of this.tracks) {
+      const ui = this._trackUIs.get(track.id);
+      if (!ui) continue;
+      ui.card.style.width  = d + 'px';
+      ui.card.style.height = d + 'px';
+      ui.canvas.width  = d;
+      ui.canvas.height = d;
+      this._drawTrackCircle(track, ui, 0);
+    }
+  }
+
   // ── Reposition all track circles from vol/pan ─────────────────────────────
   _repositionAllTracks() {
     const cW = this._tracksContainer.clientWidth;
     const cH = this._tracksContainer.clientHeight;
     if (!cW || !cH) return;
-    const rangeW = Math.max(1, cW - CIRCLE_D);
-    const rangeH = Math.max(1, cH - CIRCLE_D);
+    const d      = this._circleD;
+    const rangeW = Math.max(1, cW - d);
+    const rangeH = Math.max(1, cH - d);
 
     for (const track of this.tracks) {
       const ui = this._trackUIs.get(track.id);
       if (!ui) continue;
-      const left = Math.max(0, Math.min(cW - CIRCLE_D, ((track.pan + 1) / 2) * rangeW));
-      const top  = Math.max(0, Math.min(cH - CIRCLE_D, (1 - track.volume) * rangeH));
+      const left = Math.max(0, Math.min(cW - d, ((track.pan + 1) / 2) * rangeW));
+      const top  = Math.max(0, Math.min(cH - d, (1 - track.volume) * rangeH));
       ui.card.style.left = left + 'px';
       ui.card.style.top  = top  + 'px';
     }
@@ -464,11 +486,12 @@ export class UI {
     requestAnimationFrame(() => {
       const cW     = this._tracksContainer.clientWidth  || 500;
       const cH     = this._tracksContainer.clientHeight || 300;
-      const rangeW = Math.max(1, cW - CIRCLE_D);
-      const rangeH = Math.max(1, cH - CIRCLE_D);
-      const left = Math.max(0, Math.min(cW - CIRCLE_D,
+      const d      = this._circleD;
+      const rangeW = Math.max(1, cW - d);
+      const rangeH = Math.max(1, cH - d);
+      const left = Math.max(0, Math.min(cW - d,
         ((track.pan + 1) / 2) * rangeW + idx * 24));
-      const top = Math.max(0, Math.min(cH - CIRCLE_D,
+      const top = Math.max(0, Math.min(cH - d,
         (1 - track.volume) * rangeH + idx * 24));
       ui.card.style.left = left + 'px';
       ui.card.style.top  = top  + 'px';
@@ -548,11 +571,14 @@ export class UI {
 
   // ── Track circle ──────────────────────────────────────────────────────────
   _makeTrackUI(track) {
+    const d = this._circleD;
     const circle = el('div', 'track-circle');
+    circle.style.width  = d + 'px';
+    circle.style.height = d + 'px';
 
     const canvas = document.createElement('canvas');
-    canvas.width  = CIRCLE_D;
-    canvas.height = CIRCLE_D;
+    canvas.width  = d;
+    canvas.height = d;
     circle.appendChild(canvas);
 
     const ui = {
@@ -600,13 +626,14 @@ export class UI {
 
       const cW = this._tracksContainer.clientWidth;
       const cH = this._tracksContainer.clientHeight;
-      const left = Math.max(0, Math.min(cW - CIRCLE_D, startLeft + dx));
-      const top  = Math.max(0, Math.min(cH - CIRCLE_D, startTop  + dy));
+      const d    = this._circleD;
+      const left = Math.max(0, Math.min(cW - d, startLeft + dx));
+      const top  = Math.max(0, Math.min(cH - d, startTop  + dy));
       circle.style.left = left + 'px';
       circle.style.top  = top  + 'px';
 
-      const rangeW = Math.max(1, cW - CIRCLE_D);
-      const rangeH = Math.max(1, cH - CIRCLE_D);
+      const rangeW = Math.max(1, cW - d);
+      const rangeH = Math.max(1, cH - d);
       track.setPan(Math.max(-1, Math.min(1, (left / rangeW) * 2 - 1)));
       track.setVolume(Math.max(0, Math.min(1, 1 - top / rangeH)));
     };
@@ -651,10 +678,12 @@ export class UI {
 
   // ── Circle canvas drawing ─────────────────────────────────────────────────
   _drawTrackCircle(track, ui, fraction = 0) {
+    const D  = ui.canvas.width;
+    const sc = D / 192;
     const G  = ui.canvas.getContext('2d');
-    const cx = CIRCLE_D / 2, cy = CIRCLE_D / 2;
+    const cx = D / 2, cy = D / 2;
 
-    G.clearRect(0, 0, CIRCLE_D, CIRCLE_D);
+    G.clearRect(0, 0, D, D);
 
     const src = ui.selectedSource;
     const BG  = { mic: '#0d1520', synth: '#110d22', file: '#0d1520' }[src] ?? '#141414';
@@ -663,7 +692,7 @@ export class UI {
       : ({ mic: '#2860cc', synth: '#cc0088', file: '#aabbdd' }[src] ?? '#2a3a4a');
 
     // Background fill
-    G.beginPath(); G.arc(cx, cy, 80, 0, Math.PI * 2);
+    G.beginPath(); G.arc(cx, cy, 80 * sc, 0, Math.PI * 2);
     G.fillStyle = BG; G.fill();
 
     // Waveform ring: maps each angular position to the buffer sample that plays
@@ -717,12 +746,12 @@ export class UI {
             // else silence
           }
           const a = (i / N) * Math.PI * 2 - Math.PI / 2;
-          const r = 48 + amp * 28;
+          const r = (48 + amp * 28) * sc;
           if (i === 0) G.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
           else         G.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
         }
         G.closePath();
-        G.arc(cx, cy, 48, 0, Math.PI * 2); // inner hole
+        G.arc(cx, cy, 48 * sc, 0, Math.PI * 2); // inner hole
         G.fillStyle = CLR;
         G.globalAlpha = 0.75;
         G.fill('evenodd');
@@ -731,31 +760,31 @@ export class UI {
     }
 
     // Center fill over inner area
-    G.beginPath(); G.arc(cx, cy, 44, 0, Math.PI * 2);
+    G.beginPath(); G.arc(cx, cy, 44 * sc, 0, Math.PI * 2);
     G.fillStyle = BG; G.fill();
 
     // Track ID
     G.fillStyle = '#666';
-    G.font = 'bold 36px Segoe UI, system-ui, sans-serif';
+    G.font = `bold ${Math.round(36 * sc)}px Segoe UI, system-ui, sans-serif`;
     G.textAlign = 'center'; G.textBaseline = 'middle';
     G.fillText(`${track.id}`, cx, cy);
 
     // Progress ring — background
-    G.beginPath(); G.arc(cx, cy, 86, 0, Math.PI * 2);
-    G.strokeStyle = '#1e1e1e'; G.lineWidth = 10; G.stroke();
+    G.beginPath(); G.arc(cx, cy, 86 * sc, 0, Math.PI * 2);
+    G.strokeStyle = '#1e1e1e'; G.lineWidth = 10 * sc; G.stroke();
 
     // Progress ring — state arc
     const startA = -Math.PI / 2;
     if (track.state === 'recording') {
-      G.beginPath(); G.arc(cx, cy, 86, 0, Math.PI * 2);
-      G.strokeStyle = '#ff4444'; G.lineWidth = 10; G.stroke();
+      G.beginPath(); G.arc(cx, cy, 86 * sc, 0, Math.PI * 2);
+      G.strokeStyle = '#ff4444'; G.lineWidth = 10 * sc; G.stroke();
     } else if (track.state === 'pending') {
-      G.beginPath(); G.arc(cx, cy, 86, 0, Math.PI * 2);
-      G.strokeStyle = '#cc7700'; G.lineWidth = 10; G.stroke();
+      G.beginPath(); G.arc(cx, cy, 86 * sc, 0, Math.PI * 2);
+      G.strokeStyle = '#cc7700'; G.lineWidth = 10 * sc; G.stroke();
     } else if (track.state === 'playing' && !track.muted && fraction > 0) {
       G.beginPath();
-      G.arc(cx, cy, 86, startA, startA + fraction * Math.PI * 2);
-      G.strokeStyle = '#202090'; G.lineWidth = 10; G.stroke();
+      G.arc(cx, cy, 86 * sc, startA, startA + fraction * Math.PI * 2);
+      G.strokeStyle = '#202090'; G.lineWidth = 10 * sc; G.stroke();
     }
   }
 
