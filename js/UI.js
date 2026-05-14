@@ -31,6 +31,14 @@ export class UI {
     this._barCounterEl        = null;
     this._tapTimes            = [];
     this._lastSelectedDeviceId = null;
+
+    this._filterSlider    = null;
+    this._filterValEl     = null;
+    this._delaySlider     = null;
+    this._delayValEl      = null;
+    this._masterVolSlider = null;
+    this._masterVolVal    = null;
+    this._bpmValEl        = null;
   }
 
   build(root) {
@@ -102,6 +110,8 @@ export class UI {
     });
     delaySection.append(delayLabel, delaySlider, delayValEl);
     hdr.appendChild(delaySection);
+    this._delaySlider = delaySlider;
+    this._delayValEl  = delayValEl;
 
     const filterSection = el('div', 'master-section');
     const filterLabel = el('span', 'master-label'); filterLabel.textContent = 'FILTER';
@@ -113,21 +123,13 @@ export class UI {
     const filterValEl = el('span', '');
     filterValEl.style.cssText = 'font-size:10px;color:var(--text-dim);min-width:64px;text-align:right';
     filterValEl.textContent = 'FLAT';
-    filterSlider.addEventListener('input', () => {
-      const v = parseFloat(filterSlider.value);
-      this.engine.setMasterFilter(v);
-      if (v === 0) {
-        filterValEl.textContent = 'FLAT';
-        filterValEl.style.color = 'var(--text-dim)';
-      } else if (v < 0) {
-        const freq = 20000 * Math.pow(20 / 20000, Math.abs(v));
-        filterValEl.textContent = 'LPF ' + _fmtHz(freq);
-        filterValEl.style.color = 'var(--blue-bright)';
-      } else {
-        const freq = 20 * Math.pow(20000 / 20, v);
-        filterValEl.textContent = 'HPF ' + _fmtHz(freq);
-        filterValEl.style.color = 'var(--amber-bright)';
-      }
+    this._filterSlider = filterSlider;
+    this._filterValEl  = filterValEl;
+    filterSlider.addEventListener('input', () => this._applyMasterFilter(parseFloat(filterSlider.value)));
+    filterSlider.addEventListener('click', (e) => {
+      if (!e.shiftKey) return;
+      filterSlider.value = '0';
+      this._applyMasterFilter(0);
     });
     filterSection.append(filterLabel, filterSlider, filterValEl);
     hdr.appendChild(filterSection);
@@ -144,6 +146,8 @@ export class UI {
       master.querySelector('#master-vol-val').textContent = Math.round(v * 100) + '%';
     });
     hdr.appendChild(master);
+    this._masterVolSlider = master.querySelector('#master-vol');
+    this._masterVolVal    = master.querySelector('#master-vol-val');
     return hdr;
   }
 
@@ -207,6 +211,7 @@ export class UI {
     this._barCounterEl.textContent = 'Bar --';
     beatSec.append(dots, this._barCounterEl);
 
+    this._bpmValEl = bpmVal;
     bar.append(bpmGroup, beatSec);
     return bar;
   }
@@ -379,8 +384,8 @@ export class UI {
         const br  = b.r * Math.min(W, H);
         const hue = (b.hue + t * 10) % 360;
         const grd = G.createRadialGradient(bx, by, 0, bx, by, br);
-        grd.addColorStop(0,   `hsla(${hue}, 95%, 62%, 0.14)`); // FVX center color
-        grd.addColorStop(0.5, `hsla(${hue}, 85%, 52%, 0.08)`); // FVX mid color
+        grd.addColorStop(0,   `hsla(${hue}, 95%, 62%, 0.14)`); // VFX center color
+        grd.addColorStop(0.5, `hsla(${hue}, 85%, 52%, 0.08)`); // VFX mid color
         grd.addColorStop(1,   `hsla(${hue}, 80%, 48%, 0)`);
         G.beginPath();
         G.arc(bx, by, br, 0, Math.PI * 2);
@@ -653,7 +658,7 @@ export class UI {
 
     const src = ui.selectedSource;
     const BG  = { mic: '#0d1520', synth: '#110d22', file: '#0d1520' }[src] ?? '#141414';
-    const CLR = track.state === 'ready'
+    const CLR = (track.state === 'ready' || track.muted)
       ? '#444444'
       : ({ mic: '#2860cc', synth: '#cc0088', file: '#aabbdd' }[src] ?? '#2a3a4a');
 
@@ -747,7 +752,7 @@ export class UI {
     } else if (track.state === 'pending') {
       G.beginPath(); G.arc(cx, cy, 86, 0, Math.PI * 2);
       G.strokeStyle = '#cc7700'; G.lineWidth = 10; G.stroke();
-    } else if (track.state === 'playing' && fraction > 0) {
+    } else if (track.state === 'playing' && !track.muted && fraction > 0) {
       G.beginPath();
       G.arc(cx, cy, 86, startA, startA + fraction * Math.PI * 2);
       G.strokeStyle = '#202090'; G.lineWidth = 10; G.stroke();
@@ -785,7 +790,9 @@ export class UI {
       await this._handleRecord(track, () => ui.selectedSource, ui);
     });
     const playToggleBtn = btn('MUTE', 'btn btn-default', () => {
-      if (track.state === 'playing') {
+      if (track.muted) {
+        track.setMute(false);
+      } else if (track.state === 'playing') {
         track.stop();
       } else {
         if (!track.buffer) { this.toast('録音データがありません', 'error'); return; }
@@ -922,6 +929,10 @@ export class UI {
     ui.srcSel        = srcSel;
     ui.devRow        = devRow;
     ui.devSel        = devSel;
+    ui.lenSel        = lenSel;
+    ui.timingNum     = timingNum;
+    ui.sendSl        = sendSl;
+    ui.sendValEl     = sendValEl;
 
     this._refreshMicDevices(ui);
 
@@ -1067,6 +1078,21 @@ export class UI {
     }
   }
 
+  _setTrackBuffer(track, ui, buffer, name) {
+    track.setBuffer(buffer);
+    if (name) {
+      track.name = name;
+      if (ui.nameSpan) ui.nameSpan.textContent = name;
+    }
+    ui._waveformSamples = track.getWaveformSamples(WAVE_N);
+    ui.selectedSource = 'file';
+    ui.lockedSource   = 'file';
+    if (ui.devRow) ui.devRow.style.display = 'none';
+    if (ui.srcSel) ui.srcSel.querySelectorAll('.source-btn').forEach(b => b.classList.remove('active'));
+    this._applySourceLock(ui);
+    this._updateSynthVisibility();
+  }
+
   async _loadFile(track, ui) {
     const input = document.createElement('input');
     input.type = 'file';
@@ -1076,18 +1102,7 @@ export class UI {
       if (!file) return;
       try {
         const buffer = await this.engine.loadFile(file);
-        track.setBuffer(buffer);
-        track.name = file.name.replace(/\.[^.]+$/, '');
-        if (ui.nameSpan) ui.nameSpan.textContent = track.name;
-        ui._waveformSamples = track.getWaveformSamples(WAVE_N);
-
-        ui.selectedSource = 'file';
-        ui.lockedSource   = 'file';
-        if (ui.devRow) ui.devRow.style.display = 'none';
-        if (ui.srcSel) ui.srcSel.querySelectorAll('.source-btn').forEach(b => b.classList.remove('active'));
-        this._applySourceLock(ui);
-        this._updateSynthVisibility();
-
+        this._setTrackBuffer(track, ui, buffer, file.name.replace(/\.[^.]+$/, ''));
         this.transport.ensureRunning();
         track.startLooping(this.transport, this.transport.getNextBarTime());
         this._refreshTrackState(track, ui);
@@ -1097,6 +1112,84 @@ export class UI {
       }
     };
     input.click();
+  }
+
+  _applyMasterFilter(v) {
+    this.engine.setMasterFilter(v);
+    if (this._filterSlider) this._filterSlider.value = String(v);
+    if (!this._filterValEl) return;
+    if (v === 0) {
+      this._filterValEl.textContent = 'FLAT';
+      this._filterValEl.style.color = 'var(--text-dim)';
+    } else if (v < 0) {
+      const freq = 20000 * Math.pow(100 / 20000, Math.abs(v));
+      this._filterValEl.textContent = 'LPF ' + _fmtHz(freq);
+      this._filterValEl.style.color = 'var(--blue-bright)';
+    } else {
+      const freq = 20 * Math.pow(5000 / 20, v);
+      this._filterValEl.textContent = 'HPF ' + _fmtHz(freq);
+      this._filterValEl.style.color = 'var(--amber-bright)';
+    }
+  }
+
+  async loadDemo(config) {
+    if (config.bpm        != null) {
+      this.transport.setBPM(config.bpm);
+      if (this._bpmValEl) this._bpmValEl.textContent = this.transport.bpm;
+    }
+    if (config.masterVol  != null) {
+      this.engine.setMasterVolume(config.masterVol);
+      if (this._masterVolSlider) this._masterVolSlider.value = String(config.masterVol);
+      if (this._masterVolVal)    this._masterVolVal.textContent = Math.round(config.masterVol * 100) + '%';
+    }
+    if (config.masterFilter != null) this._applyMasterFilter(config.masterFilter);
+    if (config.delayTime    != null) {
+      this.engine.setDelayTime(config.delayTime);
+      if (this._delaySlider) this._delaySlider.value = String(config.delayTime);
+      if (this._delayValEl)  this._delayValEl.textContent = config.delayTime + 'ms';
+    }
+
+    const loadTasks = (config.tracks ?? []).map(async (tc) => {
+      this._addTrack();
+      const track = this.tracks[this.tracks.length - 1];
+      const ui    = this._trackUIs.get(track.id);
+
+      if (tc.volume  != null) track.setVolume(tc.volume);
+      if (tc.pan     != null) track.setPan(tc.pan);
+      if (tc.length  != null) { track.lengthMode = tc.length; if (ui.lenSel) ui.lenSel.value = tc.length; }
+      if (tc.timing  != null) { track.timing = Math.round(tc.timing); if (ui.timingNum) ui.timingNum.textContent = track.timing; }
+      if (tc.send    != null) {
+        track.setSend(tc.send);
+        if (ui.sendSl)    ui.sendSl.value = String(tc.send);
+        if (ui.sendValEl) {
+          ui.sendValEl.textContent = Math.round(tc.send * 100) + '%';
+          ui.sendValEl.style.color = tc.send > 0 ? 'var(--purple)' : 'var(--text-dim)';
+        }
+      }
+
+      try {
+        const buffer = await this.engine.loadUrl(tc.file);
+        const name   = tc.name ?? tc.file.split('/').pop().replace(/\.[^.]+$/, '');
+        this._setTrackBuffer(track, ui, buffer, name);
+        return { track, ui, tc };
+      } catch (err) {
+        this.toast(`${tc.file}: 読み込み失敗`, 'error');
+        return null;
+      }
+    });
+
+    const results = await Promise.all(loadTasks);
+    const loaded  = results.filter(r => r !== null);
+    if (loaded.length === 0) return;
+
+    this.transport.ensureRunning();
+    const startTime = this.transport.getNextBarTime();
+    for (const { track, ui, tc } of loaded) {
+      track.startLooping(this.transport, startTime);
+      if (tc.muted) track.setMute(true);
+      this._refreshTrackState(track, ui);
+      this._drawTrackCircle(track, ui, 0);
+    }
   }
 
   // ── Track State ───────────────────────────────────────────────────────────
@@ -1119,7 +1212,7 @@ export class UI {
 
     if (playToggleBtn) {
       playToggleBtn.textContent = 'MUTE';
-      playToggleBtn.className = track.state === 'ready' ? 'btn btn-blue active' : 'btn btn-default';
+      playToggleBtn.className = (track.state === 'ready' || track.muted) ? 'btn btn-blue active' : 'btn btn-default';
     }
 
     this._drawTrackCircle(track, ui, 0);
@@ -1327,7 +1420,9 @@ export class UI {
         const track = this.tracks[idx];
         if (track) {
           const ui = this._trackUIs.get(track.id);
-          if (track.state === 'playing') {
+          if (track.muted) {
+            track.setMute(false);
+          } else if (track.state === 'playing') {
             track.stop();
           } else if (track.buffer) {
             this.transport.ensureRunning();

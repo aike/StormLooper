@@ -16,6 +16,11 @@ async function bootstrap() {
   const synth     = new Synth(engine);
   ui = new UI(engine, synth, transport);
   ui.build(document.getElementById('app'));
+
+  if (new URLSearchParams(location.search).get('demo') === '1') {
+    const { DEMO_CONFIG } = await import('./demo.js');
+    await ui.loadDemo(DEMO_CONFIG);
+  }
 }
 
 let started = false;

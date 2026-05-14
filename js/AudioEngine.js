@@ -59,6 +59,14 @@ export class AudioEngine {
     return this.ctx.decodeAudioData(buf);
   }
 
+  async loadUrl(url) {
+    await this.resume();
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${url}`);
+    const buf = await resp.arrayBuffer();
+    return this.ctx.decodeAudioData(buf);
+  }
+
   setMasterVolume(val) {
     if (this.masterGain) this.masterGain.gain.value = val;
   }
@@ -75,13 +83,13 @@ export class AudioEngine {
       return;
     }
     if (val < 0) {
-      // LPF: 0 → 20 000 Hz (flat), -1 → 20 Hz (max cut)
+      // LPF: 0 → 20000 Hz (flat), -1 → 100 Hz (max cut)
       this.masterFilter.type = 'lowpass';
-      this.masterFilter.frequency.value = 20000 * Math.pow(20 / 20000, Math.abs(val));
+      this.masterFilter.frequency.value = 20000 * Math.pow(100 / 20000, Math.abs(val));
     } else {
-      // HPF: 0 → 20 Hz (flat), +1 → 20 000 Hz (max cut)
+      // HPF: 0 → 20 Hz (flat), +1 → 5000 Hz (max cut)
       this.masterFilter.type = 'highpass';
-      this.masterFilter.frequency.value = 20 * Math.pow(20000 / 20, val);
+      this.masterFilter.frequency.value = 20 * Math.pow(5000 / 20, val);
     }
   }
 }
