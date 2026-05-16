@@ -599,6 +599,13 @@ export class UI {
     this._savedPlayingIds = null;
     this._stopAllBtn.innerHTML = '⏹ Stop All';
     this._stopAllBtn.className = 'btn btn-default';
+
+    this._scenes.fill(null);
+    this._sceneDotEls?.forEach(d => d?.classList.remove('saved'));
+
+    this._demoMaxBars   = null;
+    this._demoSequencer = null;
+    this._demoLastBar   = -1;
   }
 
   // ── Track circle ──────────────────────────────────────────────────────────
