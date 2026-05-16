@@ -39,8 +39,13 @@ export class UI {
     this._masterVolVal    = null;
     this._bpmValEl        = null;
 
-    this._scenes     = new Array(10).fill(null);
+    this._scenes      = new Array(10).fill(null);
     this._sceneDotEls = null;
+
+    this._demoMaxBars   = null;
+    this._demoSequencer = null;
+    this._demoLastBar   = -1;
+
     this._circleD = 192;
   }
 
@@ -255,8 +260,22 @@ export class UI {
     if (bar) bar.classList.toggle('stopped', !info.running);
     for (let i = 0; i < 4; i++)
       this._globalDots[i]?.classList.toggle('active', info.running && info.beat === i);
-    if (this._barCounterEl)
-      this._barCounterEl.textContent = info.running ? `Bar ${info.bar + 1}` : 'Bar --';
+    if (this._barCounterEl) {
+      if (!info.running) {
+        this._barCounterEl.textContent = 'Bar --';
+      } else {
+        const absBar    = info.bar;
+        const wrappedBar = this._demoMaxBars
+          ? (absBar % this._demoMaxBars) + 1
+          : absBar + 1;
+        this._barCounterEl.textContent = `Bar ${wrappedBar}`;
+        if (this._demoSequencer && absBar !== this._demoLastBar) {
+          this._demoLastBar = absBar;
+          const entry = this._demoSequencer.find(e => e.bar === wrappedBar);
+          if (entry != null) this._recallScene(entry.scene);
+        }
+      }
+    }
   }
 
   // ── Toolbar ───────────────────────────────────────────────────────────────
@@ -556,6 +575,7 @@ export class UI {
       if (t.scheduler) { t.scheduler.stop(); t.scheduler = null; }
     });
     this.transport.stop();
+    this._demoLastBar = -1;
     this._onGlobalTick({ running: false, beat: 0, bar: 0, fraction: 0 });
     this._stopAllBtn.innerHTML = '▶ Start All';
     this._stopAllBtn.className = 'btn btn-green';
@@ -1231,6 +1251,9 @@ export class UI {
       this._refreshTrackState(track, ui);
       this._drawTrackCircle(track, ui, 0);
     }
+
+    if (config.maxbars   != null) this._demoMaxBars   = config.maxbars;
+    if (config.sequencer != null) this._demoSequencer = config.sequencer;
 
     if (config.scenes) {
       for (const [key, states] of Object.entries(config.scenes)) {

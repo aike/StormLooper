@@ -51,26 +51,38 @@ export const DEMO_CONFIG = {
     },
   ],
 
+  // Bar counter wraps at this value and resets to 1 (demo mode only).
+  maxbars: 16,
+
+  // Sequencer: apply a scene when the (wrapped) bar number is reached (demo mode only).
+  // bar is 1-indexed and matches the displayed bar counter.
+  sequencer: [
+    { bar:  1, scene: 1 },
+    { bar:  5, scene: 2 },
+    { bar:  9, scene: 3 },
+    { bar: 13, scene: 2 },
+  ],
+
   // Optional: pre-defined scenes (0–9).
   // Each scene is an array of per-track states identified by name.
   // Omit any scene key to leave that slot empty.
   // volume / pan / muted are optional; omitted fields fall back to the track's loaded value.
   scenes: {
     1: [
-      { name: 'Kick',   volume: 0.9, pan:  0,   muted: false },
-      { name: 'Hi-hat', volume: 0.2, pan:  0.5, muted: false },
-      { name: 'Synth A', volume: 0.8, pan: -0.4, muted: true  },
-      { name: 'Synth D', volume: 0.2, pan:  0.2, muted: false  },
+      { name: 'Kick',   volume: 0.9, pan:  0,   muted: false  },
+      { name: 'Hi-hat', volume: 0.2, pan:  0.5, muted: false  },
+      { name: 'Synth A', volume: 0.8, pan: -0.4, muted: false },
+      { name: 'Synth D', volume: 0.2, pan:  0.2, muted: true  },
     ],
     2: [
-      { name: 'Kick',   volume: 0.9, pan:  0,   muted: false },
+      { name: 'Kick',   volume: 0.9, pan:  0,   muted: false  },
       { name: 'Hi-hat', volume: 0.2, pan:  -0.5, muted: false },
-      { name: 'Synth A', volume: 0.2, pan: -0.2, muted: false },
-      { name: 'Synth D', volume: 0.8, pan:  0.4, muted: true },
+      { name: 'Synth A', volume: 0.2, pan: -0.2, muted: true  },
+      { name: 'Synth D', volume: 0.8, pan:  0.4, muted: false },
     ],
     3: [
       { name: 'Kick',   volume: 0.9, pan:  0,   muted: false  },
-      { name: 'Hi-hat', volume: 0.4, pan:  0.3, muted: true  },
+      { name: 'Hi-hat', volume: 0.4, pan:  0.3, muted: false  },
       { name: 'Synth A', volume: 0.1, pan: -0.2, muted: false },
       { name: 'Synth D', volume: 0.1, pan:  0.2, muted: false },
     ],
