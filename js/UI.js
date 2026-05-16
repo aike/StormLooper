@@ -552,11 +552,11 @@ export class UI {
     this._savedPlayingIds = new Set(
       this.tracks.filter(t => t.state === 'playing').map(t => t.id)
     );
-    this.tracks.forEach(t => t.stop());
-    this._trackUIs.forEach((ui, id) => {
-      const t = this.tracks.find(x => x.id === id);
-      if (t) this._refreshTrackState(t, ui);
+    this.tracks.forEach(t => {
+      if (t.scheduler) { t.scheduler.stop(); t.scheduler = null; }
     });
+    this.transport.stop();
+    this._onGlobalTick({ running: false, beat: 0, bar: 0, fraction: 0 });
     this._stopAllBtn.innerHTML = '▶ Start All';
     this._stopAllBtn.className = 'btn btn-green';
   }
@@ -567,10 +567,6 @@ export class UI {
     this.tracks.forEach(t => {
       if (this._savedPlayingIds.has(t.id) && t.buffer)
         t.startLooping(this.transport, startTime);
-    });
-    this._trackUIs.forEach((ui, id) => {
-      const t = this.tracks.find(x => x.id === id);
-      if (t) this._refreshTrackState(t, ui);
     });
     this._savedPlayingIds = null;
     this._stopAllBtn.innerHTML = '⏹ Stop All';
