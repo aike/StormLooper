@@ -1231,6 +1231,26 @@ export class UI {
       this._refreshTrackState(track, ui);
       this._drawTrackCircle(track, ui, 0);
     }
+
+    if (config.scenes) {
+      for (const [key, states] of Object.entries(config.scenes)) {
+        const n = parseInt(key);
+        if (isNaN(n) || n < 0 || n > 9) continue;
+        const entries = states.map(s => {
+          const r = results.find(r => r && r.track.name === s.name);
+          if (!r) return null;
+          return {
+            id:     r.track.id,
+            volume: s.volume ?? r.track.volume,
+            pan:    s.pan    ?? r.track.pan,
+            muted:  s.muted  ?? false,
+          };
+        }).filter(Boolean);
+        if (entries.length === 0) continue;
+        this._scenes[n] = entries;
+        if (this._sceneDotEls?.[n]) this._sceneDotEls[n].classList.add('saved');
+      }
+    }
   }
 
   // ── Track State ───────────────────────────────────────────────────────────
