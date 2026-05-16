@@ -62,6 +62,18 @@ export function injectStyles() {
       letter-spacing: 1px;
     }
     .header-spacer { flex: 1; }
+    .scene-indicator { display: flex; align-items: center; gap: 8px; }
+    .scene-dots { display: flex; gap: 4px; }
+    .scene-dot {
+      width: 16px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #1e2d42;
+      user-select: none;
+      letter-spacing: 0;
+    }
+    .scene-dot.saved { color: var(--blue-bright); }
     .master-section {
       display: flex;
       align-items: center;

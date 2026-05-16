@@ -39,7 +39,8 @@ export class UI {
     this._masterVolVal    = null;
     this._bpmValEl        = null;
 
-    this._scenes  = new Array(10).fill(null);
+    this._scenes     = new Array(10).fill(null);
+    this._sceneDotEls = null;
     this._circleD = 192;
   }
 
@@ -150,6 +151,20 @@ export class UI {
     hdr.appendChild(master);
     this._masterVolSlider = master.querySelector('#master-vol');
     this._masterVolVal    = master.querySelector('#master-vol-val');
+
+    const sceneSection = el('div', 'scene-indicator');
+    const sceneLabel = el('span', 'master-label'); sceneLabel.textContent = 'SCENE';
+    const sceneDots = el('div', 'scene-dots');
+    this._sceneDotEls = new Array(10);
+    [1,2,3,4,5,6,7,8,9,0].forEach(n => {
+      const d = el('span', 'scene-dot');
+      d.textContent = String(n);
+      sceneDots.appendChild(d);
+      this._sceneDotEls[n] = d;
+    });
+    sceneSection.append(sceneLabel, sceneDots);
+    hdr.appendChild(sceneSection);
+
     return hdr;
   }
 
@@ -1429,7 +1444,6 @@ export class UI {
   _bindKeyboard() {
     const pressed = new Set();
     document.addEventListener('keydown', (e) => {
-      console.log(e.ctrlKey, e.shiftKey, e.altKey, e.key);
       // Scene save: Ctrl+Alt+0-9
       if (e.ctrlKey && e.altKey && e.key >= '0' && e.key <= '9') {
         e.preventDefault();
@@ -1502,6 +1516,7 @@ export class UI {
       id: t.id, volume: t.volume, pan: t.pan,
       muted: t.muted || t.state === 'ready',
     }));
+    if (this._sceneDotEls?.[n]) this._sceneDotEls[n].classList.add('saved');
     this.toast(`Scene ${n} saved`, 'success');
   }
 
