@@ -39,6 +39,7 @@ export class UI {
     this._masterVolVal    = null;
     this._bpmValEl        = null;
 
+    this._scenes  = new Array(10).fill(null);
     this._circleD = 192;
   }
 
@@ -1428,6 +1429,20 @@ export class UI {
   _bindKeyboard() {
     const pressed = new Set();
     document.addEventListener('keydown', (e) => {
+      console.log(e.ctrlKey, e.shiftKey, e.altKey, e.key);
+      // Scene save: Ctrl+Alt+0-9
+      if (e.ctrlKey && e.altKey && e.key >= '0' && e.key <= '9') {
+        e.preventDefault();
+        this._saveScene(parseInt(e.key));
+        return;
+      }
+      // Scene recall: Ctrl+0-9
+      if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key >= '0' && e.key <= '9') {
+        e.preventDefault();
+        this._recallScene(parseInt(e.key));
+        return;
+      }
+
       // Space: REC toggle — works regardless of focus (except contentEditable)
       if (e.key === ' ' && !e.target.isContentEditable) {
         const track = this._selectedTrack;
@@ -1479,6 +1494,63 @@ export class UI {
         this._keyboardWrap?.querySelector(`[data-freq="${freq}"]`)?.classList.remove('pressed');
       }
     });
+  }
+
+  // ── Scenes ────────────────────────────────────────────────────────────────
+  _saveScene(n) {
+    this._scenes[n] = this.tracks.map(t => ({
+      id: t.id, volume: t.volume, pan: t.pan,
+      muted: t.muted || t.state === 'ready',
+    }));
+    this.toast(`Scene ${n} saved`, 'success');
+  }
+
+  _recallScene(n) {
+    const scene = this._scenes[n];
+    if (!scene) return;
+
+    const now     = this.engine.ctx.currentTime;
+    const rampEnd = now + this.transport.beatDuration;
+
+    for (const state of scene) {
+      const track = this.tracks.find(t => t.id === state.id);
+      if (!track) continue;
+
+      const targetGain = state.muted ? 0 : state.volume;
+      track.gainNode.gain.cancelScheduledValues(now);
+      track.gainNode.gain.setValueAtTime(track.gainNode.gain.value, now);
+      track.gainNode.gain.linearRampToValueAtTime(targetGain, rampEnd);
+
+      track.panNode.pan.cancelScheduledValues(now);
+      track.panNode.pan.setValueAtTime(track.panNode.pan.value, now);
+      track.panNode.pan.linearRampToValueAtTime(state.pan, rampEnd);
+
+      track.volume = state.volume;
+      track.pan    = state.pan;
+      track.muted  = state.muted;
+
+      if (!state.muted && track.buffer && track.state === 'ready') {
+        this.transport.ensureRunning();
+        track.startLooping(this.transport, this.transport.getNextBarTime());
+      }
+
+      const ui = this._trackUIs.get(track.id);
+      if (ui) {
+        ui.card.classList.add('scene-recall');
+        this._refreshTrackState(track, ui);
+      }
+    }
+
+    this._repositionAllTracks();
+
+    const removeDur = Math.ceil(this.transport.beatDuration * 1000) + 150;
+    setTimeout(() => {
+      for (const track of this.tracks) {
+        this._trackUIs.get(track.id)?.card.classList.remove('scene-recall');
+      }
+    }, removeDur);
+
+    this.toast(`Scene ${n}`, '');
   }
 
   // ── Toast ─────────────────────────────────────────────────────────────────

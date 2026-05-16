@@ -159,6 +159,7 @@ export function injectStyles() {
       z-index: 1;
     }
     .track-circle:active { cursor: grabbing; }
+    .track-circle.scene-recall { transition: box-shadow 0.15s, left 0.5s ease, top 0.5s ease; }
     .track-circle canvas { display: block; border-radius: 50%; }
 
     /* State / selection priority: playing < selected < recording */
