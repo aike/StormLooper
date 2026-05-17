@@ -1104,6 +1104,20 @@ export class UI {
     return newBuf;
   }
 
+  // Apply a short linear fade-out to the last 10 ms of the buffer to prevent
+  // a click when the recording ends mid-sound. Modifies PCM data in place.
+  _applyTailFade(buffer) {
+    const fadeLen = Math.min(Math.round(0.010 * buffer.sampleRate), buffer.length);
+    const offset  = buffer.length - fadeLen;
+    for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+      const data = buffer.getChannelData(ch);
+      for (let i = 0; i < fadeLen; i++) {
+        data[offset + i] *= (fadeLen - 1 - i) / (fadeLen - 1);
+      }
+    }
+    return buffer;
+  }
+
   // ── Record Handler ────────────────────────────────────────────────────────
   async _handleRecord(track, getSource, ui) {
     await this.engine.resume();
@@ -1114,7 +1128,7 @@ export class UI {
         const buffer = await this.recorder.stop();
         if (buffer) {
           track.latencyMs = LATENCY[ui.selectedSource] ?? 0;
-          track.setBuffer(this._maybeTrimToBar(buffer));
+          track.setBuffer(this._applyTailFade(this._maybeTrimToBar(buffer)));
           ui._waveformSamples = track.getWaveformSamples(WAVE_N);
           ui.lockedSource = ui.selectedSource;
           this._applySourceLock(ui);
