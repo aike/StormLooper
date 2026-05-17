@@ -678,6 +678,7 @@ export class UI {
       const pr  = this._tracksContainer.getBoundingClientRect();
       startLeft = cr.left - pr.left;
       startTop  = cr.top  - pr.top;
+      this._selectTrack(track);
     };
 
     const onMove = (clientX, clientY) => {
@@ -703,7 +704,6 @@ export class UI {
     const onEnd = () => {
       if (!dragging) return;
       dragging = false;
-      if (!moved) this._selectTrack(track);
     };
 
     // ── Mouse ──
