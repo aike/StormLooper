@@ -1,7 +1,7 @@
 import { LoopTrack } from './LoopTrack.js';
 import { Recorder } from './Recorder.js';
 import { Metronome } from './Metronome.js';
-import { LATENCY } from './config.js';
+import { LATENCY, DELAY } from './config.js';
 
 const WAVE_N = 360;  // waveform sample count (1 per degree)
 
@@ -109,11 +109,11 @@ export class UI {
     const delayLabel = el('span', 'master-label'); delayLabel.textContent = 'DELAY';
     const delaySlider = document.createElement('input');
     delaySlider.type = 'range'; delaySlider.min = '100'; delaySlider.max = '500';
-    delaySlider.step = '1'; delaySlider.value = '250';
+    delaySlider.step = '1'; delaySlider.value = String(DELAY.timeMs);
     delaySlider.style.width = '80px';
     const delayValEl = el('span', '');
     delayValEl.style.cssText = 'font-size:10px;color:var(--text-dim);min-width:40px;text-align:right';
-    delayValEl.textContent = '250ms';
+    delayValEl.textContent = DELAY.timeMs + 'ms';
     delaySlider.addEventListener('input', () => {
       const v = parseInt(delaySlider.value);
       this.engine.setDelayTime(v);

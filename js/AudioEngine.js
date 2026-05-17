@@ -1,3 +1,5 @@
+import { DELAY } from './config.js';
+
 export class AudioEngine {
   constructor() {
     this.ctx = null;
@@ -28,11 +30,11 @@ export class AudioEngine {
     // Delay: send input → delay → feedback loop + wet out → masterFilter
     this.delaySendInput = this.ctx.createGain();
     this.delayNode = this.ctx.createDelay(2.0);
-    this.delayNode.delayTime.value = 0.25;
+    this.delayNode.delayTime.value = DELAY.timeMs / 1000;
     this.feedbackGain = this.ctx.createGain();
-    this.feedbackGain.gain.value = 0.4;
+    this.feedbackGain.gain.value = DELAY.feedback;
     this.delayWetGain = this.ctx.createGain();
-    this.delayWetGain.gain.value = 1;
+    this.delayWetGain.gain.value = DELAY.wet;
 
     this.delaySendInput.connect(this.delayNode);
     this.delayNode.connect(this.feedbackGain);
