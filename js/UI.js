@@ -37,6 +37,8 @@ export class UI {
     this._delayValEl      = null;
     this._masterVolSlider = null;
     this._masterVolVal    = null;
+    this._metroVolSlider  = null;
+    this._metroVolVal     = null;
     this._bpmValEl        = null;
 
     this._scenes      = new Array(10).fill(null);
@@ -156,6 +158,25 @@ export class UI {
     hdr.appendChild(master);
     this._masterVolSlider = master.querySelector('#master-vol');
     this._masterVolVal    = master.querySelector('#master-vol-val');
+
+    const metroSection = el('div', 'master-section');
+    const metroLabel = el('span', 'master-label'); metroLabel.textContent = 'METRO VOL';
+    const metroSlider = document.createElement('input');
+    metroSlider.type = 'range'; metroSlider.min = '0'; metroSlider.max = '1';
+    metroSlider.step = '0.01'; metroSlider.value = '1';
+    metroSlider.style.width = '80px';
+    const metroValEl = el('span', '');
+    metroValEl.style.cssText = 'font-size:10px;color:var(--text-dim);min-width:30px;text-align:right';
+    metroValEl.textContent = '100%';
+    metroSlider.addEventListener('input', () => {
+      const v = parseFloat(metroSlider.value);
+      this._metronome.setVolume(v);
+      metroValEl.textContent = Math.round(v * 100) + '%';
+    });
+    metroSection.append(metroLabel, metroSlider, metroValEl);
+    hdr.appendChild(metroSection);
+    this._metroVolSlider = metroSlider;
+    this._metroVolVal    = metroValEl;
 
     const sceneSection = el('div', 'scene-indicator');
     const sceneLabel = el('span', 'master-label'); sceneLabel.textContent = 'SCENE';
@@ -542,6 +563,7 @@ export class UI {
       this._propertiesBody.innerHTML = '';
     }
     if (this.recordingTrack === track) {
+      this._metronome.stop();
       this.recorder.cancel();
       this.recordingTrack = null;
     }
@@ -1078,6 +1100,7 @@ export class UI {
     await this.engine.resume();
 
     if (this.recordingTrack === track) {
+      this._metronome.stop();
       try {
         const buffer = await this.recorder.stop();
         if (buffer) {
@@ -1100,6 +1123,7 @@ export class UI {
     }
 
     if (this.recordingTrack) {
+      this._metronome.stop();
       this.recorder.cancel();
       const prevUI = this._trackUIs.get(this.recordingTrack.id);
       if (prevUI) {
@@ -1120,7 +1144,7 @@ export class UI {
     ui.recBtn.classList.add('active');
 
     this.recorder.onCountdownBar = (barTime) => {
-      this._metronome.playOneBar(this.transport, barTime);
+      this._metronome.start(this.transport, barTime);
     };
 
     this.recorder.onRecordingStart = () => {

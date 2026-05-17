@@ -6,16 +6,25 @@ export class Metronome {
     this._gen       = 0;
     this._transport = null;
     this._nextBeatTime = null;
+
+    this.gainNode = this.ctx.createGain();
+    this.gainNode.gain.value = 1.0;
+    this.gainNode.connect(this.masterGain);
   }
 
-  start(transport) {
+  // startTime: optional audio-context time to begin from (defaults to next beat boundary)
+  start(transport, startTime = null) {
     this._active = false; // stop any previous chain
     this._transport = transport;
     transport.ensureRunning();
     this._gen++;
     this._active = true;
-    this._nextBeatTime = transport.getNextBoundaryTime(transport.beatDuration);
+    this._nextBeatTime = startTime ?? transport.getNextBoundaryTime(transport.beatDuration);
     this._scheduleNext(this._gen);
+  }
+
+  setVolume(v) {
+    this.gainNode.gain.value = Math.max(0, Math.min(1, v));
   }
 
   stop() {
@@ -63,7 +72,7 @@ export class Metronome {
     env.gain.exponentialRampToValueAtTime(0.001, time + 0.018);
 
     osc.connect(env);
-    env.connect(this.masterGain);
+    env.connect(this.gainNode);
 
     osc.start(time);
     osc.stop(time + 0.022);
