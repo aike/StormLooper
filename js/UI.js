@@ -1,6 +1,7 @@
 import { LoopTrack } from './LoopTrack.js';
 import { Recorder } from './Recorder.js';
 import { Metronome } from './Metronome.js';
+import { LATENCY } from './config.js';
 
 const WAVE_N = 360;  // waveform sample count (1 per degree)
 
@@ -772,6 +773,9 @@ export class UI {
         const spanBeats = Math.max(1, Math.round(span / beatDur));
 
         // Mirror _scheduleOnce: compute phase parameters
+        // latencySec shifts the effective buffer read position forward so that
+        // angle 0 (bar head) corresponds to buffer position latencySec.
+        const latencySec = (track.latencyMs ?? 0) / 1000;
         let timingOffset = 0; // seconds before head plays (positive timing)
         let seekSec      = 0; // seconds seeked into buffer (negative timing)
         let tailStart    = 0; // buffer position where looping tail begins
@@ -790,17 +794,22 @@ export class UI {
           const time = (i / N) * span; // loop time in seconds
           let amp = 0;
           if (timing >= 0) {
-            if (time < timingOffset) {
-              // Tail zone: buffer loops from tailStart
-              amp = s[Math.min(N - 1, Math.floor(((tailStart + time) % bufDur) / bufDur * N))];
-            } else if (time < timingOffset + bufDur) {
-              // Head zone: buffer from position 0
-              amp = s[Math.min(N - 1, Math.floor((time - timingOffset) / bufDur * N))];
+            // effDelay: bar time at which buffer position 0 plays (shifted by latency)
+            const effDelay = timingOffset - latencySec;
+            if (timingOffset > latencySec && time < effDelay) {
+              // Tail zone: buffer loops from tailStart, shifted by latency
+              amp = s[Math.min(N - 1, Math.floor(((tailStart + time + latencySec) % bufDur) / bufDur * N))];
+            } else if (time < effDelay + bufDur) {
+              // Head zone: buffer position 0 at effDelay, latency baked in
+              const bufPos = time - effDelay;
+              if (bufPos >= 0) {
+                amp = s[Math.min(N - 1, Math.floor(bufPos / bufDur * N))];
+              }
             }
             // else silence
           } else {
-            // Negative timing: seeked playback
-            const bufPos = seekSec + time;
+            // Negative timing: seeked playback, shifted by latency
+            const bufPos = seekSec + time + latencySec;
             if (bufPos < bufDur) {
               amp = s[Math.min(N - 1, Math.floor(bufPos / bufDur * N))];
             }
@@ -1104,6 +1113,7 @@ export class UI {
       try {
         const buffer = await this.recorder.stop();
         if (buffer) {
+          track.latencyMs = LATENCY[ui.selectedSource] ?? 0;
           track.setBuffer(this._maybeTrimToBar(buffer));
           ui._waveformSamples = track.getWaveformSamples(WAVE_N);
           ui.lockedSource = ui.selectedSource;
@@ -1171,6 +1181,7 @@ export class UI {
   }
 
   _setTrackBuffer(track, ui, buffer, name) {
+    track.latencyMs = LATENCY.file;
     track.setBuffer(buffer);
     if (name) {
       track.name = name;

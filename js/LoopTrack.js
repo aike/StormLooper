@@ -123,9 +123,13 @@ class LoopScheduler {
   }
 
   _scheduleOnce(startTime) {
-    const ctx     = this.transport.ctx;
-    const now     = ctx.currentTime;
-    if (startTime < now - 0.05) return;
+    const ctx        = this.transport.ctx;
+    const now        = ctx.currentTime;
+    const latencySec = (this.track.latencyMs ?? 0) / 1000;
+    // S: effective audio start — shifted earlier by latency so the recorded
+    // beat (at buffer position latencySec) lands exactly on startTime.
+    const S          = startTime - latencySec;
+    if (S < now - 0.05) return;
 
     const span      = this._getLoopSpan();
     const bufDur    = this.track.buffer.duration;
@@ -161,7 +165,7 @@ class LoopScheduler {
     };
 
     if (timing === 0) {
-      place(startTime, 0, startTime + Math.min(bufDur, span));
+      place(S, 0, S + Math.min(bufDur, span));
       return;
     }
 
@@ -172,7 +176,7 @@ class LoopScheduler {
       const delay      = delayBeats * beatDur;
 
       if (delay < 1e-9) {
-        place(startTime, 0, startTime + Math.min(bufDur, span));
+        place(S, 0, S + Math.min(bufDur, span));
         return;
       }
 
@@ -181,11 +185,11 @@ class LoopScheduler {
       // so the transition into the head fragment is seamless.
       const rem       = delay % bufDur;
       const tailStart = rem < 1e-9 ? 0 : bufDur - rem;
-      place(startTime, tailStart, startTime + delay, true);
+      place(S, tailStart, S + delay, true);
 
       // Head fragment: buffer from position 0 after the delay
       const headDur = Math.min(bufDur, span - delay);
-      place(startTime + delay, 0, startTime + delay + headDur);
+      place(S + delay, 0, S + delay + headDur);
 
     } else {
       // Negative TIMING: seek |timing| beats into the buffer before playing.
@@ -194,12 +198,12 @@ class LoopScheduler {
       const seekSec   = seekBeats === 0 ? 0 : (seekBeats * beatDur) % bufDur;
 
       if (seekSec < 1e-9) {
-        place(startTime, 0, startTime + Math.min(bufDur, span));
+        place(S, 0, S + Math.min(bufDur, span));
         return;
       }
 
       const playDur = Math.min(bufDur - seekSec, span);
-      place(startTime, seekSec, startTime + playDur);
+      place(S, seekSec, S + playDur);
     }
   }
 
@@ -236,6 +240,7 @@ export class LoopTrack {
     this.muted      = false;
     this.lengthMode = '4bars';
     this.timing     = 0;
+    this.latencyMs  = 0;
     this.gainNode.gain.value  = this.volume;
     this.panNode.pan.value    = this.pan;
     this.sendGain.gain.value  = this.send;
