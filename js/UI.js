@@ -1567,6 +1567,12 @@ export class UI {
 
       if (e.target.isContentEditable || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
 
+      // n: Add Track
+      if (e.key === 'n') { e.preventDefault(); this._addTrack(); return; }
+
+      // Enter: Stop All / Start All toggle
+      if (e.key === 'Enter') { e.preventDefault(); this._toggleStopStart(); return; }
+
       // 0-9: toggle MUTE on tracks 1-10 (0 → track 10)
       if (e.key >= '0' && e.key <= '9') {
         const idx   = e.key === '0' ? 9 : parseInt(e.key) - 1;
