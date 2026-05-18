@@ -632,6 +632,15 @@ export function injectStyles() {
       color: var(--text-dim);
       white-space: nowrap;
     }
+    .shortcuts-github-link {
+      font-size: 10px;
+      color: var(--text-dim);
+      text-decoration: none;
+      padding: 2px 10px;
+      margin-left: auto;
+      white-space: nowrap;
+    }
+    .shortcuts-github-link:hover { color: var(--blue-bright); }
 
   `;
 

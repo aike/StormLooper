@@ -1432,6 +1432,15 @@ export class UI {
       item.append(keyEl, descEl);
       bar.appendChild(item);
     }
+
+    const link = document.createElement('a');
+    link.href = 'https://github.com/aike/StormLooper';
+    link.textContent = 'github';
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.className = 'shortcuts-github-link';
+    bar.appendChild(link);
+
     return bar;
   }
 
