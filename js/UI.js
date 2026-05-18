@@ -83,6 +83,7 @@ export class UI {
     this._synthPanel = this._makeSynthPanel();
     this._synthPanel.style.display = 'none';
     rightPanel.appendChild(this._synthPanel);
+    rightPanel.appendChild(this._makeShortcutsPanel());
     layout.appendChild(rightPanel);
 
     root.appendChild(layout);
@@ -1408,6 +1409,29 @@ export class UI {
     }
 
     this._drawTrackCircle(track, ui, 0);
+  }
+
+  // ── Shortcuts Bar (fixed bottom) ─────────────────────────────────────────
+  _makeShortcutsPanel() {
+    const bar = el('div', 'shortcuts-bar');
+    const items = [
+      ['Space',           'REC'],
+      ['Z / Ctrl+Z',      'Undo rec'],
+      ['N',               'Add track'],
+      ['Enter',           'Stop / Start all'],
+      ['0–9',             'Mute track 1–10'],
+      ['Ctrl+0–9',        'Scene recall'],
+      ['Ctrl+Alt+0–9',    'Scene save'],
+      ['A–K  W E T Y U',  'Synth keys'],
+    ];
+    for (const [key, desc] of items) {
+      const item = el('div', 'shortcut-item');
+      const keyEl = el('span', 'shortcut-key'); keyEl.textContent = key;
+      const descEl = el('span', 'shortcut-desc'); descEl.textContent = desc;
+      item.append(keyEl, descEl);
+      bar.appendChild(item);
+    }
+    return bar;
   }
 
   // ── Synth Panel ───────────────────────────────────────────────────────────

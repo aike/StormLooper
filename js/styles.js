@@ -598,6 +598,41 @@ export function injectStyles() {
     }
     .transport-bar.stopped .beat-dot { opacity: 0.3; }
 
+    /* ── Shortcuts Bar (bottom of right panel) ── */
+    .shortcuts-bar {
+      flex-shrink: 0;
+      margin-top: auto;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      background: #0a0a0a;
+      border-top: 1px solid var(--border);
+      padding: 3px 8px;
+    }
+    .shortcut-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 10px;
+      border-right: 1px solid #2a2a2a;
+    }
+    .shortcut-item:last-child { border-right: none; }
+    .shortcut-key {
+      font-size: 10px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 1px 5px;
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .shortcut-desc {
+      font-size: 10px;
+      color: var(--text-dim);
+      white-space: nowrap;
+    }
+
   `;
 
   const style = document.createElement('style');

@@ -238,7 +238,7 @@ export class LoopTrack {
     this.pan        = 0;
     this.send       = 0;
     this.muted      = false;
-    this.lengthMode = '4bars';
+    this.lengthMode = '1bar';
     this.timing     = 0;
     this.latencyMs  = 0;
     this.gainNode.gain.value  = this.volume;
