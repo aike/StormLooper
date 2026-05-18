@@ -50,6 +50,7 @@ export class UI {
     this._demoLastBar   = -1;
 
     this._circleD = 192;
+    this._undoBuffers = new Map(); // track.id → { buffer, playing } for Z/Ctrl+Z undo
   }
 
   build(root) {
@@ -569,6 +570,7 @@ export class UI {
       this.recordingTrack = null;
     }
     track.dispose();
+    this._undoBuffers.delete(track.id);
     this.tracks = this.tracks.filter(t => t.id !== track.id);
     const ui = this._trackUIs.get(track.id);
     if (ui) {
@@ -1134,7 +1136,15 @@ export class UI {
           this._applySourceLock(ui);
           track.startLooping(this.transport, this.transport.getNextBarTime());
           this.toast(`${track.name} — 録音完了、再生開始`, 'success');
-          this._refreshMicDevices(ui); // labels now available after permission granted
+          this._refreshMicDevices(ui);
+        } else {
+          // Cancelled during countdown — restore previous playback state
+          const cancelEntry = this._undoBuffers.get(track.id);
+          if (cancelEntry?.playing && track.buffer) {
+            this.transport.ensureRunning();
+            track.startLooping(this.transport, this.transport.getNextBarTime());
+          }
+          this._undoBuffers.delete(track.id);
         }
       } catch (err) {
         this.toast('録音に失敗: ' + err.message, 'error');
@@ -1153,13 +1163,22 @@ export class UI {
       if (prevUI) {
         prevUI.recBtn.innerHTML = '<span class="rec-dot"></span> REC';
         prevUI.recBtn.classList.remove('active');
-        this.recordingTrack.state = this.recordingTrack.buffer ? 'ready' : 'empty';
+        const cancelEntry = this._undoBuffers.get(this.recordingTrack.id);
+        if (cancelEntry?.playing && this.recordingTrack.buffer) {
+          this.transport.ensureRunning();
+          this.recordingTrack.startLooping(this.transport, this.transport.getNextBarTime());
+        } else {
+          this.recordingTrack.state = this.recordingTrack.buffer ? 'ready' : 'empty';
+        }
+        this._undoBuffers.delete(this.recordingTrack.id);
         this._refreshTrackState(this.recordingTrack, prevUI);
       }
       this.recordingTrack = null;
     }
 
     const source = getSource();
+    this._undoBuffers.set(track.id, { buffer: track.buffer, playing: track.state === 'playing' });
+    track.stopLooping();
     this.transport.ensureRunning();
     this.recordingTrack = track;
     track.state = 'pending';
@@ -1186,12 +1205,45 @@ export class UI {
       }
     } catch (err) {
       this.recordingTrack = null;
-      track.state = track.buffer ? 'ready' : 'empty';
+      const startErrEntry = this._undoBuffers.get(track.id);
+      if (startErrEntry?.playing && track.buffer) {
+        this.transport.ensureRunning();
+        track.startLooping(this.transport, this.transport.getNextBarTime());
+      } else {
+        track.state = track.buffer ? 'ready' : 'empty';
+      }
+      this._undoBuffers.delete(track.id);
       this._refreshTrackState(track, ui);
       ui.recBtn.innerHTML = '<span class="rec-dot"></span> REC';
       ui.recBtn.classList.remove('active');
       this.toast('エラー: ' + err.message, 'error');
     }
+  }
+
+  _undoRecording() {
+    const track = this._selectedTrack;
+    if (!track) return;
+    if (track.state === 'recording' || track.state === 'pending') return;
+    const undoEntry = this._undoBuffers.get(track.id);
+    if (!undoEntry) { this.toast('Undoできる録音がありません', 'error'); return; }
+    this._undoBuffers.delete(track.id);
+    const ui = this._trackUIs.get(track.id);
+    if (!ui) return;
+    track.stopLooping();
+    if (undoEntry.buffer) {
+      track.buffer = undoEntry.buffer;
+      ui._waveformSamples = track.getWaveformSamples(WAVE_N);
+      this.transport.ensureRunning();
+      track.startLooping(this.transport, this.transport.getNextBarTime());
+    } else {
+      track.buffer = null;
+      track.state = 'empty';
+      ui._waveformSamples = null;
+      ui.lockedSource = null;
+      this._applySourceLock(ui);
+    }
+    this._refreshTrackState(track, ui);
+    this.toast(`${track.name} — 録音をUndoしました`, 'success');
   }
 
   _setTrackBuffer(track, ui, buffer, name) {
@@ -1572,6 +1624,13 @@ export class UI {
 
       // Enter: Stop All / Start All toggle
       if (e.key === 'Enter') { e.preventDefault(); this._toggleStopStart(); return; }
+
+      // Z or Ctrl+Z: Undo last recording on selected track
+      if (e.key.toLowerCase() === 'z' && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        this._undoRecording();
+        return;
+      }
 
       // 0-9: toggle MUTE on tracks 1-10 (0 → track 10)
       if (e.key >= '0' && e.key <= '9') {
