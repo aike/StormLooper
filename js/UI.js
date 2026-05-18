@@ -93,6 +93,7 @@ export class UI {
 
     this.transport.onTick(info => this._onGlobalTick(info));
     this._bindKeyboard();
+    this._startIdleBlur();
 
     requestAnimationFrame(() => this._drawGrid());
     new ResizeObserver(() => { this._drawGrid(); this._resizeCircles(); this._repositionAllTracks(); }).observe(this._tracksContainer);
@@ -1610,6 +1611,24 @@ export class UI {
     keyEl.addEventListener('mouseleave',      () => { this.synth.noteOff(freq); keyEl.classList.remove('pressed'); });
     keyEl.addEventListener('touchstart', (e) => { e.preventDefault(); this.synth.noteOn(freq); keyEl.classList.add('pressed'); });
     keyEl.addEventListener('touchend',        () => { this.synth.noteOff(freq); keyEl.classList.remove('pressed'); });
+  }
+
+  _startIdleBlur() {
+    const IDLE_MS = 2000;
+    let timer = null;
+
+    const schedule = () => {
+      clearTimeout(timer);
+      const active = document.activeElement;
+      if (!active || active.tagName === 'BODY') return;
+      if (active.tagName !== 'INPUT' && active.tagName !== 'SELECT' && !active.isContentEditable) return;
+      timer = setTimeout(() => document.activeElement?.blur(), IDLE_MS);
+    };
+
+    document.addEventListener('focusin', schedule);
+    document.addEventListener('focusout', () => clearTimeout(timer));
+    document.addEventListener('input',   schedule);
+    document.addEventListener('change',  schedule);
   }
 
   _bindKeyboard() {
