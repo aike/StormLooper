@@ -1415,15 +1415,17 @@ export class UI {
   // ── Shortcuts Bar (fixed bottom) ─────────────────────────────────────────
   _makeShortcutsPanel() {
     const bar = el('div', 'shortcuts-bar');
+    const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform) ||
+                  (navigator.userAgentData?.platform === 'macOS');
     const items = [
-      ['Space',           'REC'],
-      ['Z / Ctrl+Z',      'Undo rec'],
-      ['N',               'Add track'],
-      ['Enter',           'Stop / Start all'],
-      ['0–9',             'Mute track 1–10'],
-      ['Ctrl+0–9',        'Scene recall'],
-      ['Ctrl+Alt+0–9',    'Scene save'],
-      ['A–K  W E T Y U',  'Synth keys'],
+      ['Space',                                    'REC'],
+      ['Z / Ctrl+Z',                               'Undo rec'],
+      ['N',                                        'Add track'],
+      [isMac ? 'Return' : 'Enter',                 'Stop / Start all'],
+      ['0–9',                                      'Mute track 1–10'],
+      ['Ctrl+0–9',                                 'Scene recall'],
+      [isMac ? 'Ctrl+Opt+0–9' : 'Ctrl+Alt+0–9',   'Scene save'],
+      ['A–K  W E T Y U',                           'Synth keys'],
     ];
     for (const [key, desc] of items) {
       const item = el('div', 'shortcut-item');
