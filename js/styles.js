@@ -1,12 +1,14 @@
+import { APP_BG, CIRCLE_STATE } from './config.js';
+
 export function injectStyles() {
   const css = `
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #111;
-      --bg2: #1c1c1c;
-      --bg3: #242424;
-      --bg4: #2e2e2e;
+      --bg: ${APP_BG.bg};
+      --bg2: ${APP_BG.bg2};
+      --bg3: ${APP_BG.bg3};
+      --bg4: ${APP_BG.bg4};
       --border: #3a3a3a;
       --text: #e0e0e0;
       --text-dim: #888;
@@ -175,9 +177,9 @@ export function injectStyles() {
     .track-circle canvas { display: block; border-radius: 50%; }
 
     /* State / selection priority: playing < selected < recording */
-    .track-circle.playing   { box-shadow: 0 0 0 2px rgba(0, 47, 255, 0.6); }
-    .track-circle.selected  { box-shadow: 0 0 0 3px var(--blue-bright), 0 0 12px rgba(147, 196, 255, 0.6); }
-    .track-circle.recording { box-shadow: 0 0 0 3px var(--red-bright),  0 0 14px rgba(255,68,68,0.45); }
+    .track-circle.playing   { box-shadow: 0 0 0 2px ${CIRCLE_STATE.playing.ring}; }
+    .track-circle.selected  { box-shadow: 0 0 0 3px ${CIRCLE_STATE.selected.ring}, 0 0 12px ${CIRCLE_STATE.selected.glow}; }
+    .track-circle.recording { box-shadow: 0 0 0 3px ${CIRCLE_STATE.recording.ring}, 0 0 14px ${CIRCLE_STATE.recording.glow}; }
 
     /* ── Properties Panel ── */
     .properties-panel {

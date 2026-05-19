@@ -1,7 +1,7 @@
 import { LoopTrack } from './LoopTrack.js';
 import { Recorder } from './Recorder.js';
 import { Metronome } from './Metronome.js';
-import { LATENCY, DELAY } from './config.js';
+import { LATENCY, DELAY, TRACK_COLORS, TRACK_BG, RING_COLORS } from './config.js';
 
 const WAVE_N = 360;  // waveform sample count (1 per degree)
 
@@ -752,10 +752,10 @@ export class UI {
     G.clearRect(0, 0, D, D);
 
     const src = ui.selectedSource;
-    const BG  = { mic: '#0d1520', synth: '#110d22', file: '#0d1520' }[src] ?? '#141414';
+    const BG  = TRACK_BG[src] ?? TRACK_BG.mic;
     const CLR = (track.state === 'ready' || track.muted)
-      ? '#444444'
-      : ({ mic: '#2860cc', synth: '#cc0088', file: '#aabbdd' }[src] ?? '#2a3a4a');
+      ? TRACK_COLORS.muted
+      : (TRACK_COLORS[src] ?? TRACK_COLORS.file);
 
     // Background fill
     G.beginPath(); G.arc(cx, cy, 80 * sc, 0, Math.PI * 2);
@@ -845,20 +845,20 @@ export class UI {
 
     // Progress ring — background
     G.beginPath(); G.arc(cx, cy, 86 * sc, 0, Math.PI * 2);
-    G.strokeStyle = '#1e1e1e'; G.lineWidth = 10 * sc; G.stroke();
+    G.strokeStyle = RING_COLORS.bg; G.lineWidth = 10 * sc; G.stroke();
 
     // Progress ring — state arc
     const startA = -Math.PI / 2;
     if (track.state === 'recording') {
       G.beginPath(); G.arc(cx, cy, 86 * sc, 0, Math.PI * 2);
-      G.strokeStyle = '#ff4444'; G.lineWidth = 10 * sc; G.stroke();
+      G.strokeStyle = RING_COLORS.recording; G.lineWidth = 10 * sc; G.stroke();
     } else if (track.state === 'pending') {
       G.beginPath(); G.arc(cx, cy, 86 * sc, 0, Math.PI * 2);
-      G.strokeStyle = '#cc7700'; G.lineWidth = 10 * sc; G.stroke();
+      G.strokeStyle = RING_COLORS.pending; G.lineWidth = 10 * sc; G.stroke();
     } else if (track.state === 'playing' && !track.muted && fraction > 0) {
       G.beginPath();
       G.arc(cx, cy, 86 * sc, startA, startA + fraction * Math.PI * 2);
-      G.strokeStyle = '#202090'; G.lineWidth = 10 * sc; G.stroke();
+      G.strokeStyle = RING_COLORS.playing; G.lineWidth = 10 * sc; G.stroke();
     }
   }
 
