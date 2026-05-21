@@ -1,15 +1,14 @@
 export class Metronome {
   constructor(audioEngine) {
-    this.ctx        = audioEngine.ctx;
-    this.masterGain = audioEngine.masterGain;
-    this._active    = false;
-    this._gen       = 0;
-    this._transport = null;
+    this.ctx           = audioEngine.ctx;
+    this._active       = false;
+    this._gen          = 0;
+    this._transport    = null;
     this._nextBeatTime = null;
 
     this.gainNode = this.ctx.createGain();
     this.gainNode.gain.value = 1.0;
-    this.gainNode.connect(this.masterGain);
+    this.gainNode.connect(this.ctx.destination);
   }
 
   // startTime: optional audio-context time to begin from (defaults to next beat boundary)

@@ -23,6 +23,7 @@ export class UI {
     this._savedPlayingIds = null;
     this._synthPanel      = null;
     this._metronome       = new Metronome(audioEngine);
+    this._metroMode       = 'all';
     this._gridCanvas      = null;
     this._vfxCanvas       = null;
     this._vfxRaf          = null;
@@ -163,25 +164,6 @@ export class UI {
     this._masterVolSlider = master.querySelector('#master-vol');
     this._masterVolVal    = master.querySelector('#master-vol-val');
 
-    const metroSection = el('div', 'master-section');
-    const metroLabel = el('span', 'master-label'); metroLabel.textContent = 'METRO VOL';
-    const metroSlider = document.createElement('input');
-    metroSlider.type = 'range'; metroSlider.min = '0'; metroSlider.max = '1';
-    metroSlider.step = '0.01'; metroSlider.value = '1';
-    metroSlider.style.width = '80px';
-    const metroValEl = el('span', '');
-    metroValEl.style.cssText = 'font-size:10px;color:var(--text-dim);min-width:30px;text-align:right';
-    metroValEl.textContent = '100%';
-    metroSlider.addEventListener('input', () => {
-      const v = parseFloat(metroSlider.value);
-      this._metronome.setVolume(v);
-      metroValEl.textContent = Math.round(v * 100) + '%';
-    });
-    metroSection.append(metroLabel, metroSlider, metroValEl);
-    hdr.appendChild(metroSection);
-    this._metroVolSlider = metroSlider;
-    this._metroVolVal    = metroValEl;
-
     const sceneSection = el('div', 'scene-indicator');
     const sceneLabel = el('span', 'master-label'); sceneLabel.textContent = 'SCENE';
     const sceneDots = el('div', 'scene-dots');
@@ -258,8 +240,43 @@ export class UI {
     this._barCounterEl.textContent = 'Bar --';
     beatSec.append(dots, this._barCounterEl);
 
+    const metroSection = el('div', 'master-section');
+    const metroLabel = el('span', 'master-label'); metroLabel.textContent = 'METRO VOL';
+    const metroSlider = document.createElement('input');
+    metroSlider.type = 'range'; metroSlider.min = '0'; metroSlider.max = '1';
+    metroSlider.step = '0.01'; metroSlider.value = '1';
+    metroSlider.style.width = '80px';
+    const metroValEl = el('span', '');
+    metroValEl.style.cssText = 'font-size:10px;color:var(--text-dim);min-width:30px;text-align:right';
+    metroValEl.textContent = '100%';
+    metroSlider.addEventListener('input', () => {
+      const v = parseFloat(metroSlider.value);
+      this._metronome.setVolume(v);
+      metroValEl.textContent = Math.round(v * 100) + '%';
+    });
+    metroSection.append(metroLabel, metroSlider, metroValEl);
+    this._metroVolSlider = metroSlider;
+    this._metroVolVal    = metroValEl;
+
+    const metroModeSection = el('div', 'master-section');
+    const metroModeLabel = el('span', 'master-label'); metroModeLabel.textContent = 'METRO';
+    const metroModeSel = document.createElement('select');
+    metroModeSel.style.cssText = 'width:auto;font-size:11px;padding:2px 4px;';
+    [
+      { value: 'all',       label: 'Count+REC' },
+      { value: 'countdown', label: 'Count only' },
+      { value: 'off',       label: 'Off'        },
+    ].forEach(({ value, label }) => {
+      const o = document.createElement('option');
+      o.value = value; o.textContent = label;
+      metroModeSel.appendChild(o);
+    });
+    metroModeSel.value = this._metroMode;
+    metroModeSel.addEventListener('change', () => { this._metroMode = metroModeSel.value; });
+    metroModeSection.append(metroModeLabel, metroModeSel);
+
     this._bpmValEl = bpmVal;
-    bar.append(bpmGroup, beatSec);
+    bar.append(bpmGroup, beatSec, metroSection, metroModeSection);
     return bar;
   }
 
@@ -1189,7 +1206,11 @@ export class UI {
     ui.recBtn.classList.add('active');
 
     this.recorder.onCountdownBar = (barTime) => {
-      this._metronome.start(this.transport, barTime);
+      if (this._metroMode === 'all') {
+        this._metronome.start(this.transport, barTime);
+      } else if (this._metroMode === 'countdown') {
+        this._metronome.playOneBar(this.transport, barTime);
+      }
     };
 
     this.recorder.onRecordingStart = () => {
