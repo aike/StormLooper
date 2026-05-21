@@ -6,6 +6,18 @@ export const LATENCY = {
   mic:   100,
 };
 
+// Master volume initial value (0–1).
+export const MASTER_VOL = 0.85;
+
+// Master dynamics compressor settings.
+export const COMPRESSOR = {
+  threshold: -6,    // dB
+  knee:       3,    // dB
+  ratio:      4,    // compression ratio
+  attack:     0.005, // seconds
+  release:    0.15,  // seconds
+};
+
 // Master delay default parameters.
 export const DELAY = {
   timeMs:   350,  // delay time in milliseconds (100–500)

@@ -1,4 +1,4 @@
-import { DELAY } from './config.js';
+import { DELAY, MASTER_VOL, COMPRESSOR } from './config.js';
 
 export class AudioEngine {
   constructor() {
@@ -18,11 +18,11 @@ export class AudioEngine {
     this.ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
 
     this.compressor = this.ctx.createDynamicsCompressor();
-    this.compressor.threshold.value = -6;
-    this.compressor.knee.value = 3;
-    this.compressor.ratio.value = 4;
-    this.compressor.attack.value = 0.005;
-    this.compressor.release.value = 0.15;
+    this.compressor.threshold.value = COMPRESSOR.threshold;
+    this.compressor.knee.value      = COMPRESSOR.knee;
+    this.compressor.ratio.value     = COMPRESSOR.ratio;
+    this.compressor.attack.value    = COMPRESSOR.attack;
+    this.compressor.release.value   = COMPRESSOR.release;
 
     this.masterFilter = this.ctx.createBiquadFilter();
     this.masterFilter.type = 'allpass';
@@ -43,7 +43,7 @@ export class AudioEngine {
     this.delayWetGain.connect(this.masterFilter);
 
     this.masterGain = this.ctx.createGain();
-    this.masterGain.gain.value = 0.85;
+    this.masterGain.gain.value = MASTER_VOL;
     this.masterGain.connect(this.masterFilter);
     this.masterFilter.connect(this.compressor);
     this.compressor.connect(this.ctx.destination);

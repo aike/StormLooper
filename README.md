@@ -13,10 +13,10 @@ https://aike.github.io/StormLooper/
 - **2次元ミキサー** — 上下左右のドラッグで音量・パン設定
 - **トラック数無制限** — トラックを自由に追加可能
 - **3種類の入力ソース** — 🎤 MIC（入力デバイスから録音）/ 🎹 SYNTH（内蔵ソフトシンセ）/ 📂 FILE（音声ファイル読み込み）
-- **録音のUndo** — ZまたはCtrl+Z で直前の録音を取り消し可能
-- **内蔵シンセ** — 外部デバイスがない場合も内蔵シンセで録音可能
+- **録音のUndo** — 直前の録音を取り消し可能(z/Ctrl+z/Cmd+z)
+- **内蔵音源** — 外部デバイスがない場合も内蔵シンセサイザーで録音可能
 - **シーン機能** — Ctrl+Alt+0〜9 でミキサー状態の保存、Ctrl+0〜9 でリコール
-- **マスターFX** — フィルターとディレイを搭載
+- **FX** — マスターFXとしてフィルターとコンプレッサー、センドFXとしてディレイを搭載
 
 ## 動作環境
 
@@ -73,15 +73,15 @@ python -m http.server 8080  # Python
 
 ```
 js/
-├── main.js        # 起動・配線
-├── styles.js      # CSS（<style> タグとして挿入）
-├── AudioEngine.js # AudioContext・マスターゲイン・コンプレッサー
+├── main.js        # 起動時処理
+├── styles.js      # CSS
+├── AudioEngine.js # 信号処理関係
 ├── Transport.js   # BPM クロック・スケジューラー
 ├── LoopTrack.js   # ループトラック・LoopScheduler・波形
-├── Recorder.js    # ビート同期録音（MediaRecorder）
-├── Metronome.js   # オーディオ精度のクリック音・音量制御
-├── Synth.js       # オシレーターシンセ
-└── UI.js          # DOM をすべて JS で生成
+├── Recorder.js    # 録音機能
+├── Metronome.js   # メトロノーム
+├── Synth.js       # 内蔵シンセサイザー
+└── UI.js          # ユーザインタフェース
 ```
 
 ## ライセンス

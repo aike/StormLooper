@@ -1,7 +1,7 @@
 import { LoopTrack } from './LoopTrack.js';
 import { Recorder } from './Recorder.js';
 import { Metronome } from './Metronome.js';
-import { LATENCY, DELAY, TRACK_COLORS, TRACK_BG, RING_COLORS } from './config.js';
+import { LATENCY, DELAY, MASTER_VOL, TRACK_COLORS, TRACK_BG, RING_COLORS } from './config.js';
 
 const WAVE_N = 360;  // waveform sample count (1 per degree)
 
@@ -152,8 +152,8 @@ export class UI {
     const master = el('div', 'master-section');
     master.innerHTML = `
       <span class="master-label">MASTER VOL</span>
-      <input type="range" id="master-vol" min="0" max="1" step="0.01" value="0.85" style="width:80px">
-      <span id="master-vol-val" style="font-size:10px;color:var(--text-dim);min-width:30px">85%</span>
+      <input type="range" id="master-vol" min="0" max="1" step="0.01" value="${MASTER_VOL}" style="width:80px">
+      <span id="master-vol-val" style="font-size:10px;color:var(--text-dim);min-width:30px">${Math.round(MASTER_VOL * 100)}%</span>
     `;
     master.querySelector('#master-vol').addEventListener('input', (e) => {
       const v = parseFloat(e.target.value);
