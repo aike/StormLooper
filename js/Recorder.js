@@ -60,11 +60,15 @@ export class Recorder {
     const countdownStart = transport.getNextBarTime();       // bar where metronome plays
     const recordStart    = countdownStart + transport.barDuration; // bar where recording begins
 
+    // Fire onCountdownBar one lookahead window early so the metronome scheduler
+    // has enough lead time to place the first beat before it arrives.
+    const callbackLead = transport._lookahead + 0.05;
+
     return new Promise((resolve) => {
       this._pendingTimer = setTimeout(() => {
         this._pendingTimer = null;
         if (this.onCountdownBar) this.onCountdownBar(countdownStart);
-      }, Math.max(0, (countdownStart - now) * 1000));
+      }, Math.max(0, (countdownStart - now - callbackLead) * 1000));
 
       this._pendingTimer2 = setTimeout(() => {
         this._pendingTimer2 = null;
