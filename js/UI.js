@@ -793,48 +793,18 @@ export class UI {
         const timing    = track.timing;
         const spanBeats = Math.max(1, Math.round(span / beatDur));
 
-        // Mirror _scheduleOnce: compute phase parameters
-        // latencySec shifts the effective buffer read position forward so that
-        // angle 0 (bar head) corresponds to buffer position latencySec.
+        // seekSec: buffer position at bar head — matches _scheduleOnce formula.
         const latencySec = (track.latencyMs ?? 0) / 1000;
-        let timingOffset = 0; // seconds before head plays (positive timing)
-        let seekSec      = 0; // seconds seeked into buffer (negative timing)
-        let tailStart    = 0; // buffer position where looping tail begins
-        if (timing > 0) {
-          const delayBeats = ((timing % spanBeats) + spanBeats) % spanBeats;
-          timingOffset = delayBeats * beatDur;
-          const rem = timingOffset % bufDur;
-          tailStart = rem < 1e-9 ? 0 : bufDur - rem;
-        } else if (timing < 0) {
-          const seekBeats = Math.abs(timing % spanBeats);
-          seekSec = seekBeats === 0 ? 0 : (seekBeats * beatDur) % bufDur;
-        }
+        const timingNorm = ((timing % spanBeats) + spanBeats) % spanBeats;
+        const seekSec    = (bufDur - (timingNorm * beatDur) % bufDur) % bufDur;
 
         G.beginPath();
         for (let i = 0; i <= N; i++) {
           const time = (i / N) * span; // loop time in seconds
           let amp = 0;
-          if (timing >= 0) {
-            // effDelay: bar time at which buffer position 0 plays (shifted by latency)
-            const effDelay = timingOffset - latencySec;
-            if (timingOffset > latencySec && time < effDelay) {
-              // Tail zone: buffer loops from tailStart, shifted by latency
-              amp = s[Math.min(N - 1, Math.floor(((tailStart + time + latencySec) % bufDur) / bufDur * N))];
-            } else if (time < effDelay + bufDur) {
-              // Head zone: buffer position 0 at effDelay, latency baked in
-              const bufPos = time - effDelay;
-              if (bufPos >= 0) {
-                amp = s[Math.min(N - 1, Math.floor(bufPos / bufDur * N))];
-              }
-            }
-            // else silence
-          } else {
-            // Negative timing: seeked playback, shifted by latency
-            const bufPos = seekSec + time + latencySec;
-            if (bufPos < bufDur) {
-              amp = s[Math.min(N - 1, Math.floor(bufPos / bufDur * N))];
-            }
-            // else silence
+          const totalPlayed = time + latencySec;
+          if (totalPlayed < bufDur) {
+            amp = s[Math.min(N - 1, Math.floor(((seekSec + totalPlayed) % bufDur) / bufDur * N))];
           }
           const a = (i / N) * Math.PI * 2 - Math.PI / 2;
           const r = (48 + amp * 28) * sc;
@@ -996,7 +966,6 @@ export class UI {
       if (track.scheduler) track.scheduler.reschedule();
       this._drawTrackCircle(track, ui, 0);
     };
-    const timingDown = btn('◀', 'btn btn-default btn-icon btn-sm', () => applyTiming(track.timing - 1));
     const timingNum = el('span', 'num-value');
     timingNum.textContent = track.timing;
     timingNum.contentEditable = 'true';
@@ -1011,9 +980,22 @@ export class UI {
       if (e.key === 'ArrowUp')   { e.preventDefault(); applyTiming(track.timing + 1); }
       if (e.key === 'ArrowDown') { e.preventDefault(); applyTiming(track.timing - 1); }
     });
-    const timingUp = btn('▶', 'btn btn-default btn-icon btn-sm', () => applyTiming(track.timing + 1));
-    timingBox.append(timingDown, timingNum, timingUp);
-    timingRow.append(timingLabel, timingBox);
+    timingBox.append(timingNum);
+
+    const timingTapBtn = btn('TAP', 'btn btn-default btn-sm', () => {
+      if (!this.transport.isRunning) return;
+      const T        = this.engine.ctx.currentTime;
+      const beatDur  = this.transport.beatDuration;
+      const span     = track.computeLoopSpan(this.transport) ?? this.transport.barDuration;
+      const spanBeats = Math.max(1, Math.round(span / beatDur));
+      // Snap to beat for short loops, bar for longer loops
+      const snapUnit  = spanBeats < 2.5 ? 1 : 4;
+      const totalBeats = (T - this.transport.startTime) / beatDur;
+      const nearestBeat = Math.round(totalBeats / snapUnit) * snapUnit;
+      applyTiming(nearestBeat % spanBeats);
+    });
+
+    timingRow.append(timingLabel, timingBox, timingTapBtn);
     wrap.appendChild(timingRow);
 
     // ── Delay Send ──
