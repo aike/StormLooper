@@ -140,10 +140,11 @@ export const DEMO_CONFIG = {
   sequencer: [
     { bar:  1, scene: 1 },
     { bar: 16, scene: 2 },
-    { bar: 32, scene: 3 },
-    { bar: 46, scene: 4 },
-    { bar: 48, scene: 5 },
-    { bar: 64, scene: 6 },
+    { bar: 30, scene: 3 },
+    { bar: 32, scene: 4 },
+    { bar: 46, scene: 5 },
+    { bar: 48, scene: 6 },
+    { bar: 64, scene: 7 },
   ],
 
   // Optional: pre-defined scenes (0–9).
@@ -182,6 +183,21 @@ export const DEMO_CONFIG = {
     ],
 
     3: [
+      { name: 'Kick',        volume: 1.0, pan:  0.0, muted: true  },
+      { name: 'Hi-hat',      volume: 0.5, pan:  0.1, muted: true  },
+      { name: 'Snare',       volume: 0.0, pan:  0.6, muted: false  },
+      { name: 'Clap',        volume: 0.0, pan: -0.6, muted: false  },
+      { name: 'Bass',        volume: 0.9, pan: -0.1, muted: false  },
+      { name: 'Synth',       volume: 0.1, pan:  0.3, muted: false  },
+      { name: 'Snare Roll',  volume: 0.0, pan:  0.3, muted: false  },
+      { name: 'Ride Cymbal', volume: 0.0, pan: -0.3, muted: false  },
+      { name: 'SFX 1',       volume: 0.0, pan:  0.8, muted: false  },
+      { name: 'SFX 2',       volume: 0.4, pan: -0.5, muted: false  },
+      { name: 'SFX 3',       volume: 0.3, pan:  0.5, muted: false  },
+      { name: 'SFX 4',       volume: 0.0, pan: -0.8, muted: false  },
+    ],
+
+    4: [
       { name: 'Kick',        volume: 1.0, pan:  0.0, muted: false  },
       { name: 'Hi-hat',      volume: 0.5, pan:  0.1, muted: false  },
       { name: 'Snare',       volume: 0.3, pan:  0.6, muted: false  },
@@ -196,7 +212,7 @@ export const DEMO_CONFIG = {
       { name: 'SFX 4',       volume: 0.0, pan: -0.8, muted: false  },
     ],
 
-    4: [
+    5: [
       { name: 'Kick',        volume: 1.0, pan:  0.0, muted: false  },
       { name: 'Hi-hat',      volume: 0.5, pan:  0.1, muted: false  },
       { name: 'Snare',       volume: 0.0, pan:  0.6, muted: false  },
@@ -211,7 +227,7 @@ export const DEMO_CONFIG = {
       { name: 'SFX 4',       volume: 0.0, pan: -0.8, muted: false  },
     ],
 
-    5: [
+    6: [
       { name: 'Kick',        volume: 0.0, pan:  0.0, muted: false  },
       { name: 'Hi-hat',      volume: 0.0, pan:  0.1, muted: false  },
       { name: 'Snare',       volume: 0.0, pan:  0.6, muted: false  },
@@ -226,7 +242,7 @@ export const DEMO_CONFIG = {
       { name: 'SFX 4',       volume: 0.0, pan: -0.8, muted: false  },
     ],
 
-    6: [
+    7: [
       { name: 'Kick',        volume: 1.0, pan:  0.0, muted: false  },
       { name: 'Hi-hat',      volume: 0.0, pan:  0.1, muted: false  },
       { name: 'Snare',       volume: 0.0, pan:  0.6, muted: false  },
