@@ -46,9 +46,9 @@ export class UI {
     this._scenes      = new Array(10).fill(null);
     this._sceneDotEls = null;
 
-    this._demoMaxBars   = null;
-    this._demoSequencer = null;
-    this._demoLastBar   = -1;
+    this._demoMaxBars        = null;
+    this._demoSequencer      = null;
+    this._demoLastTriggerBeat = -1;
 
     this._circleD = 192;
     this._undoBuffers = new Map(); // track.id → { buffer, playing } for Z/Ctrl+Z undo
@@ -306,15 +306,31 @@ export class UI {
       if (!info.running) {
         this._barCounterEl.textContent = 'Bar --';
       } else {
-        const absBar    = info.bar;
-        const wrappedBar = this._demoMaxBars
-          ? (absBar % this._demoMaxBars) + 1
+        const absBar     = info.bar;
+        const beat       = info.beat;
+        const absBeat    = absBar * 4 + beat;
+        // Demo mode: absBar 0 = silent bar 0, absBar 1 = bar 1 (audio starts), wraps at maxbars
+        const wrappedBar = this._demoMaxBars != null
+          ? (absBar === 0 ? 0 : ((absBar - 1) % this._demoMaxBars) + 1)
           : absBar + 1;
         this._barCounterEl.textContent = `Bar ${wrappedBar}`;
-        if (this._demoSequencer && absBar !== this._demoLastBar) {
-          this._demoLastBar = absBar;
-          const entry = this._demoSequencer.find(e => e.bar === wrappedBar);
-          if (entry != null) this._recallScene(entry.scene);
+        if (this._demoSequencer && absBeat !== this._demoLastTriggerBeat) {
+          for (const entry of this._demoSequencer) {
+            let shouldFire = false;
+            if (entry.bar === 1) {
+              // Fire on beat 4 of bar 0 (startup) or beat 4 of maxbars bar (wrap)
+              shouldFire = beat === 3 && (wrappedBar === 0 ||
+                (this._demoMaxBars != null && wrappedBar === this._demoMaxBars));
+            } else {
+              // Fire on beat 4 (index 3) of the bar before the target bar
+              shouldFire = beat === 3 && wrappedBar === entry.bar - 1;
+            }
+            if (shouldFire) {
+              this._demoLastTriggerBeat = absBeat;
+              this._recallScene(entry.scene);
+              break;
+            }
+          }
         }
       }
     }
@@ -619,7 +635,7 @@ export class UI {
       if (t.scheduler) { t.scheduler.stop(); t.scheduler = null; }
     });
     this.transport.stop();
-    this._demoLastBar = -1;
+    this._demoLastTriggerBeat = -1;
     this._onGlobalTick({ running: false, beat: 0, bar: 0, fraction: 0 });
     this._stopAllBtn.innerHTML = '▶ Start All';
     this._stopAllBtn.className = 'btn btn-green';
@@ -647,9 +663,9 @@ export class UI {
     this._scenes.fill(null);
     this._sceneDotEls?.forEach(d => d?.classList.remove('saved'));
 
-    this._demoMaxBars   = null;
-    this._demoSequencer = null;
-    this._demoLastBar   = -1;
+    this._demoMaxBars        = null;
+    this._demoSequencer      = null;
+    this._demoLastTriggerBeat = -1;
   }
 
   // ── Track circle ──────────────────────────────────────────────────────────

@@ -139,12 +139,12 @@ export const DEMO_CONFIG = {
   // bar is 1-indexed and matches the displayed bar counter.
   sequencer: [
     { bar:  1, scene: 1 },
-    { bar: 16, scene: 2 },
-    { bar: 30, scene: 3 },
-    { bar: 32, scene: 4 },
-    { bar: 46, scene: 5 },
-    { bar: 48, scene: 6 },
-    { bar: 64, scene: 7 },
+    { bar: 17, scene: 2 },
+    { bar: 31, scene: 3 },
+    { bar: 33, scene: 4 },
+    { bar: 48, scene: 5 },
+    { bar: 50, scene: 6 },
+    { bar: 65, scene: 7 },
   ],
 
   // Optional: pre-defined scenes (0–9).
