@@ -6,7 +6,12 @@
 
 ## Live demo
 
-https://aike.github.io/StormLooper/
+デモモード  
+https://aike.github.io/StormLooper/?demo=1  
+  
+Playモード  
+https://aike.github.io/StormLooper/  
+
 
 ## 特徴
 
