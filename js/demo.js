@@ -143,7 +143,7 @@ export const DEMO_CONFIG = {
     { bar: 31, scene: 3 },
     { bar: 33, scene: 4 },
     { bar: 48, scene: 5 },
-    { bar: 50, scene: 6 },
+    { bar: 49, scene: 6 },
     { bar: 65, scene: 7 },
   ],
 
