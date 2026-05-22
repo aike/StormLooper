@@ -1322,7 +1322,7 @@ export class UI {
     }
   }
 
-  async loadDemo(config) {
+  async loadDemo(config, opts = {}) {
     if (config.bpm        != null) {
       this.transport.setBPM(config.bpm);
       if (this._bpmValEl) this._bpmValEl.textContent = this.transport.bpm;
@@ -1381,8 +1381,12 @@ export class UI {
       this._drawTrackCircle(track, ui, 0);
     }
 
-    if (config.maxbars   != null) this._demoMaxBars   = config.maxbars;
-    if (config.sequencer != null) this._demoSequencer = config.sequencer;
+    const autoSequencer = opts.autoSequencer !== false;
+
+    if (autoSequencer) {
+      if (config.maxbars   != null) this._demoMaxBars   = config.maxbars;
+      if (config.sequencer != null) this._demoSequencer = config.sequencer;
+    }
 
     if (config.scenes) {
       for (const [key, states] of Object.entries(config.scenes)) {
@@ -1402,6 +1406,10 @@ export class UI {
         this._scenes[n] = entries;
         if (this._sceneDotEls?.[n]) this._sceneDotEls[n].classList.add('saved');
       }
+    }
+
+    if (!autoSequencer) {
+      this._recallScene(1);
     }
   }
 

@@ -17,9 +17,10 @@ async function bootstrap() {
   ui = new UI(engine, synth, transport);
   ui.build(document.getElementById('app'));
 
-  if (new URLSearchParams(location.search).get('demo') === '1') {
+  const demoParam = new URLSearchParams(location.search).get('demo');
+  if (demoParam === '1' || demoParam === '2') {
     const { DEMO_CONFIG } = await import('./demo.js');
-    await ui.loadDemo(DEMO_CONFIG);
+    await ui.loadDemo(DEMO_CONFIG, { autoSequencer: demoParam === '1' });
   }
 }
 

@@ -6,10 +6,13 @@
 
 ## Live demo
 
-デモモード  
+demoモード1 (デモ音源と自動制御)  
 https://aike.github.io/StormLooper/?demo=1  
   
-Playモード  
+demoモード2 (デモ音源のみ)  
+https://aike.github.io/StormLooper/?demo=2  
+  
+Playモード (新規画面)  
 https://aike.github.io/StormLooper/  
 
 
