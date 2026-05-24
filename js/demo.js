@@ -167,7 +167,7 @@ export const DEMO_CONFIG = {
     { bar: 49, scene: 7 },
     { bar: 57, scene: 8 },
     { bar: 65, scene: 9 },
-    { bar: 79, scene: 0 },
+    { bar: 80, scene: 0 },
   ],
 
   // Optional: pre-defined scenes (0–9).
