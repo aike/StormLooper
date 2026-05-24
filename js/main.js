@@ -4,6 +4,14 @@ import { Transport    } from './Transport.js';
 import { Synth        } from './Synth.js';
 import { UI           } from './UI.js';
 
+// iOS Safari の 100vh バグ対策: 実際の表示高さを --vh に設定
+(function () {
+  const setVH = () => document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px');
+  setVH();
+  window.addEventListener('resize', setVH);
+  window.addEventListener('orientationchange', () => setTimeout(setVH, 150));
+})();
+
 injectStyles();
 
 const engine    = new AudioEngine();

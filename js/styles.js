@@ -31,14 +31,16 @@ export function injectStyles() {
       color: var(--text);
       font-family: 'Segoe UI', system-ui, sans-serif;
       font-size: 13px;
-      min-height: 100vh;
-      overflow-x: hidden;
+      height: 100%;
+      overflow: hidden;
     }
 
     #app {
       display: flex;
       flex-direction: column;
-      min-height: 100vh;
+      height: calc(var(--vh, 1vh) * 100); /* JS polyfill (iOS Safari 15.3以前) */
+      height: 100dvh;                      /* dvh対応ブラウザ (iOS 15.4+) で上書き */
+      overflow: hidden;
     }
 
     /* ── Header ── */
@@ -633,6 +635,7 @@ export function injectStyles() {
       background: #0a0a0a;
       border-top: 1px solid var(--border);
       padding: 3px 8px;
+      padding-bottom: max(3px, env(safe-area-inset-bottom));
     }
     .shortcut-item {
       display: flex;
