@@ -111,6 +111,29 @@ export function injectStyles() {
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      transition: width 0.25s ease;
+    }
+    .right-panel.collapsed {
+      width: 0;
+      border-left-width: 0;
+    }
+    .right-panel-handle {
+      width: 14px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      background: var(--bg3);
+      border-left: 1px solid var(--border);
+      color: #444;
+      font-size: 9px;
+      user-select: none;
+      transition: background 0.15s, color 0.15s;
+    }
+    .right-panel-handle:hover {
+      background: var(--bg4);
+      color: var(--text-dim);
     }
 
     /* ── Toolbar ── */

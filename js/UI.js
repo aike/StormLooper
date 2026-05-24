@@ -85,6 +85,17 @@ export class UI {
     this._synthPanel.style.display = 'none';
     rightPanel.appendChild(this._synthPanel);
     rightPanel.appendChild(this._makeShortcutsPanel());
+
+    const handle = el('div', 'right-panel-handle');
+    handle.textContent = '▶';
+    handle.title = 'プロパティパネルを折りたたむ / 展開する';
+    let panelCollapsed = false;
+    handle.addEventListener('click', () => {
+      panelCollapsed = !panelCollapsed;
+      rightPanel.classList.toggle('collapsed', panelCollapsed);
+      handle.textContent = panelCollapsed ? '◀' : '▶';
+    });
+    layout.appendChild(handle);
     layout.appendChild(rightPanel);
 
     root.appendChild(layout);
