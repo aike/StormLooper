@@ -52,15 +52,15 @@ export const TRACK_BG = {
 // Progress ring colors.
 export const RING_COLORS = {
   bg:        '#1e1e1e',  // ring track (always visible)
-  recording: '#ff4444',
-  pending:   '#cc7700',
+  recording: '#da1111',
+  pending:   '#ed3cb5',
   playing:   '#202090',
 };
 
 // Track circle border glow per state.
 // 'ring' is the solid outline color; 'glow' is the diffuse halo color.
 export const CIRCLE_STATE = {
-  playing:   { ring: 'rgba(0, 47, 255, 0.6)' },
-  selected:  { ring: '#4499ff', glow: 'rgba(147, 196, 255, 0.6)' },
-  recording: { ring: '#ff4444', glow: 'rgba(255, 68, 68, 0.45)' },
+  playing:   { ring: '#421dbc', glow: 'rgba(100, 100, 255, 1.0)'  },
+  selected:  { ring: '#afd3ff', glow: 'rgba(230, 240, 255, 1.0)' },
+  recording: { ring: '#da1111', glow: 'rgba(255, 68, 68, 1.0)' },
 };

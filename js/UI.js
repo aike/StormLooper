@@ -510,9 +510,11 @@ export class UI {
         const br  = b.r * Math.min(W, H);
         const hue = (b.hue + t * 10) % 360;
         const grd = G.createRadialGradient(bx, by, 0, bx, by, br);
-        grd.addColorStop(0,   `hsla(${hue}, 95%, 62%, 0.14)`); // VFX center color
-        grd.addColorStop(0.5, `hsla(${hue}, 85%, 52%, 0.08)`); // VFX mid color
-        grd.addColorStop(1,   `hsla(${hue}, 80%, 48%, 0)`);
+
+        grd.addColorStop(0,   `hsla(${hue}, 88%, 55%, 0.08)`);
+        grd.addColorStop(0.5, `hsla(${hue}, 78%, 45%, 0.04)`);
+        grd.addColorStop(1,   `hsla(${hue}, 75%, 45%, 0)`);
+
         G.beginPath();
         G.arc(bx, by, br, 0, Math.PI * 2);
         G.fillStyle = grd;

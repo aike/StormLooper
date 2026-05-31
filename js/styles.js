@@ -202,9 +202,9 @@ export function injectStyles() {
     .track-circle canvas { display: block; border-radius: 50%; }
 
     /* State / selection priority: playing < selected < recording */
-    .track-circle.playing   { box-shadow: 0 0 0 2px ${CIRCLE_STATE.playing.ring}; }
-    .track-circle.selected  { box-shadow: 0 0 0 3px ${CIRCLE_STATE.selected.ring}, 0 0 12px ${CIRCLE_STATE.selected.glow}; }
-    .track-circle.recording { box-shadow: 0 0 0 3px ${CIRCLE_STATE.recording.ring}, 0 0 14px ${CIRCLE_STATE.recording.glow}; }
+    .track-circle.playing   { box-shadow: 0 0 0 2px ${CIRCLE_STATE.playing.ring}, 0 0 20px ${CIRCLE_STATE.playing.glow}; }
+    .track-circle.selected  { box-shadow: 0 0 0 3px ${CIRCLE_STATE.selected.ring}, 0 0 20px ${CIRCLE_STATE.selected.glow}; }
+    .track-circle.recording { box-shadow: 0 0 0 3px ${CIRCLE_STATE.recording.ring}, 0 0 20px ${CIRCLE_STATE.recording.glow}; }
 
     /* ── Properties Panel ── */
     .properties-panel {
