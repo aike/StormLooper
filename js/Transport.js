@@ -10,6 +10,7 @@ export class Transport {
     this._timer = null;
     this._callbacks = [];    // {time, fn}
     this._tickListeners = new Set();
+    this._bpmListeners = new Set();
     this._rafId = null;
   }
 
@@ -43,6 +44,13 @@ export class Transport {
     } else {
       this.bpm = bpm;
     }
+    this._bpmListeners.forEach(fn => fn(this.bpm));
+  }
+
+  // Register a callback fired after every effective BPM change
+  onBpmChange(fn) {
+    this._bpmListeners.add(fn);
+    return () => this._bpmListeners.delete(fn);
   }
 
   _beatFloat() {

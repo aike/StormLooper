@@ -1,3 +1,5 @@
+import { stretchBuffer } from './TimeStretch.js';
+
 let trackIdCounter = 1;
 
 // ── Loop span calculation ──────────────────────────────────────────────────────
@@ -125,7 +127,7 @@ class LoopScheduler {
   _scheduleOnce(startTime) {
     const ctx        = this.transport.ctx;
     const now        = ctx.currentTime;
-    const latencySec = (this.track.latencyMs ?? 0) / 1000;
+    const latencySec = (this.track.effectiveLatencyMs ?? 0) / 1000;
     // S: effective audio start — shifted earlier by latency so the recorded
     // beat (at buffer position latencySec) lands exactly on startTime.
     const S          = startTime - latencySec;
@@ -180,7 +182,12 @@ export class LoopTrack {
   constructor(audioEngine) {
     this.id = trackIdCounter++;
     this.engine = audioEngine;
-    this.buffer = null;
+    this.buffer = null;       // playback buffer (time-stretched when enabled)
+    this.rawBuffer = null;    // original recorded/loaded audio — source of truth
+    this.originalBpm = null;  // BPM the material was recorded/authored at
+    this.stretchEnabled = true; // false = one-shot: original speed & pitch
+    this._stretchRatio = 1;   // current buffer duration / rawBuffer duration
+    this._stretchCache = null; // { raw, ratio, buffer }
     this.name = `Track ${this.id}`;
     this.state = 'empty'; // empty | pending | recording | ready | playing
 
@@ -210,10 +217,44 @@ export class LoopTrack {
     this.recordStartBarTime = null;
   }
 
-  setBuffer(buffer) {
+  setBuffer(buffer, originalBpm = null) {
+    this.rawBuffer = buffer;
     this.buffer = buffer;
+    if (originalBpm != null) this.originalBpm = originalBpm;
+    this._stretchRatio = 1;
+    this._stretchCache = null;
     this.state = 'ready';
   }
+
+  // Recompute the playback buffer from rawBuffer for the current transport BPM.
+  // Returns true when this.buffer changed (waveform caches must be rebuilt).
+  updateStretch(transport) {
+    if (!this.rawBuffer) return false;
+    let ratio = 1;
+    if (this.stretchEnabled && this.originalBpm > 0) {
+      ratio = this.originalBpm / transport.bpm;
+    }
+    const prev = this.buffer;
+    if (Math.abs(ratio - 1) < 1e-3) {
+      this.buffer = this.rawBuffer;
+      this._stretchRatio = 1;
+    } else if (this._stretchCache &&
+               this._stretchCache.raw === this.rawBuffer &&
+               Math.abs(this._stretchCache.ratio - ratio) < 1e-6) {
+      this.buffer = this._stretchCache.buffer;
+      this._stretchRatio = ratio;
+    } else {
+      const stretched = stretchBuffer(this.engine.ctx, this.rawBuffer, ratio);
+      this._stretchCache = { raw: this.rawBuffer, ratio, buffer: stretched };
+      this.buffer = stretched;
+      this._stretchRatio = ratio;
+    }
+    return this.buffer !== prev;
+  }
+
+  // Latency compensation scaled by the stretch ratio — the silent head of the
+  // raw recording stretches along with the rest of the audio.
+  get effectiveLatencyMs() { return (this.latencyMs ?? 0) * this._stretchRatio; }
 
   computeLoopSpan(transport) {
     if (!this.buffer) return null;
@@ -239,7 +280,14 @@ export class LoopTrack {
 
   // Convenience: stop=stop looping, clear=wipe buffer
   stop()  { this.stopLooping(); }
-  clear() { this.stopLooping(); this.buffer = null; this.state = 'empty'; }
+  clear() {
+    this.stopLooping();
+    this.buffer = null;
+    this.rawBuffer = null;
+    this._stretchCache = null;
+    this._stretchRatio = 1;
+    this.state = 'empty';
+  }
 
   setMute(muted) {
     this.muted = muted;

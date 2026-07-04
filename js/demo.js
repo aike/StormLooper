@@ -1,6 +1,10 @@
 // Demo configuration — loaded when URL contains ?demo=1
 // WAV files must be placed under ./wav/ on the server.
 // All fields are optional; omit to keep defaults.
+// Per-track optional fields:
+//   bpm     — BPM the sample was authored at (default: config bpm)
+//   stretch — time-stretch to transport BPM, pitch preserved (default: true;
+//             set false for one-shot samples that must keep speed & pitch)
 
 export const DEMO_CONFIG = {
   bpm:          120,
@@ -18,6 +22,8 @@ export const DEMO_CONFIG = {
       timing:  0,
       send:    0,
       muted:   false,
+      bpm:     120,
+      stretch: true,
     },
     {
       file:    './wav/hihat.wav',
@@ -28,6 +34,8 @@ export const DEMO_CONFIG = {
       timing:  0,
       send:    0,
       muted:   false,
+      bpm:     120,
+      stretch: true,
     },
     {
       file:    './wav/snare.wav',
@@ -38,6 +46,8 @@ export const DEMO_CONFIG = {
       timing:  0,
       send:    0,
       muted:   false,
+      bpm:     120,
+      stretch: true,
     },
     {
       file:    './wav/clap.wav',
@@ -48,6 +58,8 @@ export const DEMO_CONFIG = {
       timing:  0,
       send:    0,
       muted:   false,
+      bpm:     120,
+      stretch: true,
     },
  
     {
@@ -59,6 +71,8 @@ export const DEMO_CONFIG = {
       timing:  0,
       send:    0,
       muted:   false,
+      bpm:     120,
+      stretch: true,
     },
     {
       file:    './wav/bass2.wav',
@@ -69,6 +83,8 @@ export const DEMO_CONFIG = {
       timing:  0,
       send:    0,
       muted:   false,
+      bpm:     120,
+      stretch: true,
     },
     {
       file:    './wav/synth.wav',
@@ -79,6 +95,8 @@ export const DEMO_CONFIG = {
       timing:  0,
       send:    0.3,
       muted:   false,
+      bpm:     120,
+      stretch: true,
     },
     {
       file:    './wav/synth2.wav',
@@ -89,6 +107,8 @@ export const DEMO_CONFIG = {
       timing:  0,
       send:    0.3,
       muted:   false,
+      bpm:     120,
+      stretch: true,
     },
     {
       file:    './wav/snareroll.wav',
@@ -99,6 +119,8 @@ export const DEMO_CONFIG = {
       timing:  0,
       send:    0.1,
       muted:   false,
+      bpm:     120,
+      stretch: true,
     },
     {
       file:    './wav/cymbal.wav',
@@ -109,6 +131,8 @@ export const DEMO_CONFIG = {
       timing:  0,
       send:    0,
       muted:   false,
+      bpm:     120,
+      stretch: true,
     },
     {
       file:    './wav/sfx1.wav',
@@ -119,6 +143,8 @@ export const DEMO_CONFIG = {
       timing:  0,
       send:    0.4,
       muted:   false,
+      bpm:     120,
+      stretch: true,
     },
     {
       file:    './wav/sfx2.wav',
@@ -129,6 +155,8 @@ export const DEMO_CONFIG = {
       timing:  0,
       send:    0.2,
       muted:   false,
+      bpm:     120,
+      stretch: true,
     },
     {
       file:    './wav/sfx3.wav',
@@ -139,6 +167,8 @@ export const DEMO_CONFIG = {
       timing:  0,
       send:    0.2,
       muted:   false,
+      bpm:     120,
+      stretch: true,
     },
     {
       file:    './wav/sfx4.wav',
@@ -149,6 +179,8 @@ export const DEMO_CONFIG = {
       timing:  4,
       send:    0.2,
       muted:   false,
+      bpm:     120,
+      stretch: true,
     },
   ],
 

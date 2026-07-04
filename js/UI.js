@@ -51,7 +51,8 @@ export class UI {
     this._demoLastTriggerBeat = -1;
 
     this._circleD = 192;
-    this._undoBuffers = new Map(); // track.id → { buffer, playing } for Z/Ctrl+Z undo
+    this._undoBuffers = new Map(); // track.id → { buffer, originalBpm, playing } for Z/Ctrl+Z undo
+    this._stretchTimer = null;     // debounce timer for BPM-change re-stretch
   }
 
   build(root) {
@@ -104,6 +105,7 @@ export class UI {
     document.body.appendChild(this._toastContainer);
 
     this.transport.onTick(info => this._onGlobalTick(info));
+    this.transport.onBpmChange(() => this._onBpmChanged());
     this._bindKeyboard();
     this._startIdleBlur();
 
@@ -305,6 +307,33 @@ export class UI {
       this.transport.setBPM(Math.round(60000 / avg));
       bpmEl.textContent = this.transport.bpm;
     }
+  }
+
+  // ── Time stretch ──────────────────────────────────────────────────────────
+  // Debounced: TAP tempo and held arrow keys fire many BPM changes in a row;
+  // re-stretch only after the BPM settles.
+  _onBpmChanged() {
+    clearTimeout(this._stretchTimer);
+    this._stretchTimer = setTimeout(() => this._applyStretchAll(), 250);
+  }
+
+  _applyStretchAll() {
+    for (const track of this.tracks) {
+      const ui = this._trackUIs.get(track.id);
+      const changed = track.updateStretch(this.transport);
+      if (changed && ui) ui._waveformSamples = track.getWaveformSamples(WAVE_N);
+      // Realign every playing loop to the new bar grid
+      if (track.scheduler) track.scheduler.reschedule();
+      if (ui) this._drawTrackCircle(track, ui, 0);
+    }
+  }
+
+  _applyTrackStretch(track, ui) {
+    if (!track.rawBuffer) return;
+    const changed = track.updateStretch(this.transport);
+    if (changed) ui._waveformSamples = track.getWaveformSamples(WAVE_N);
+    if (track.scheduler) track.scheduler.reschedule();
+    this._drawTrackCircle(track, ui, 0);
   }
 
   // ── Global tick ───────────────────────────────────────────────────────────
@@ -703,6 +732,7 @@ export class UI {
       badge: null, recBtn: null, playToggleBtn: null, nameSpan: null, srcSel: null,
       devRow: null, devSel: null, selectedDeviceId: null,
       lockedSource: null,
+      stretchBtn: null, obpmNum: null, refreshStretchUI: null,
     };
 
     this._drawTrackCircle(track, ui, 0);
@@ -823,7 +853,7 @@ export class UI {
         const spanBeats = Math.max(1, Math.round(span / beatDur));
 
         // seekSec: buffer position at bar head — matches _scheduleOnce formula.
-        const latencySec = (track.latencyMs ?? 0) / 1000;
+        const latencySec = (track.effectiveLatencyMs ?? 0) / 1000;
         const timingNorm = ((timing % spanBeats) + spanBeats) % spanBeats;
         const seekSec    = (bufDur - (timingNorm * beatDur) % bufDur) % bufDur;
 
@@ -985,6 +1015,43 @@ export class UI {
     lenRow.append(lenLabel, lenSel);
     wrap.appendChild(lenRow);
 
+    // ── Stretch (time-stretch to BPM, pitch preserved) ──
+    const stretchRow = el('div', 'props-section');
+    const stretchLabel = el('div', 'props-label'); stretchLabel.textContent = 'STRETCH';
+    const stretchBtn = btn('ON', 'btn btn-blue btn-sm active', () => {
+      track.stretchEnabled = !track.stretchEnabled;
+      refreshStretchUI();
+      this._applyTrackStretch(track, ui);
+    });
+    const obpmBox = el('div', 'num-box');
+    const obpmNum = el('span', 'num-value');
+    obpmNum.contentEditable = 'true';
+    obpmNum.spellcheck = false;
+    const applyObpm = (v) => {
+      if (!isNaN(v)) track.originalBpm = Math.max(20, Math.min(300, Math.round(v)));
+      refreshStretchUI();
+      this._applyTrackStretch(track, ui);
+    };
+    obpmNum.addEventListener('blur', () => applyObpm(parseInt(obpmNum.textContent)));
+    obpmNum.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter')     { e.preventDefault(); obpmNum.blur(); }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); applyObpm((track.originalBpm ?? this.transport.bpm) + 1); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); applyObpm((track.originalBpm ?? this.transport.bpm) - 1); }
+    });
+    obpmBox.append(obpmNum);
+    const obpmUnit = el('span', '');
+    obpmUnit.style.cssText = 'font-size:10px;color:var(--text-dim)';
+    obpmUnit.textContent = 'BPM';
+    const refreshStretchUI = () => {
+      stretchBtn.textContent = track.stretchEnabled ? 'ON' : 'OFF';
+      stretchBtn.className   = track.stretchEnabled ? 'btn btn-blue btn-sm active' : 'btn btn-default btn-sm';
+      obpmNum.textContent    = track.originalBpm ?? '--';
+      obpmBox.style.opacity  = track.stretchEnabled ? '' : '0.5';
+    };
+    refreshStretchUI();
+    stretchRow.append(stretchLabel, stretchBtn, obpmBox, obpmUnit);
+    wrap.appendChild(stretchRow);
+
     // ── Timing number box ──
     const timingRow = el('div', 'props-section');
     const timingLabel = el('div', 'props-label'); timingLabel.textContent = 'TIMING';
@@ -1062,6 +1129,9 @@ export class UI {
     ui.devSel        = devSel;
     ui.lenSel        = lenSel;
     ui.timingNum     = timingNum;
+    ui.stretchBtn    = stretchBtn;
+    ui.obpmNum       = obpmNum;
+    ui.refreshStretchUI = refreshStretchUI;
     ui.sendSl        = sendSl;
     ui.sendValEl     = sendValEl;
 
@@ -1160,8 +1230,9 @@ export class UI {
         const buffer = await this.recorder.stop();
         if (buffer) {
           track.latencyMs = LATENCY[ui.selectedSource] ?? 0;
-          track.setBuffer(this._applyTailFade(this._maybeTrimToBar(buffer)));
+          track.setBuffer(this._applyTailFade(this._maybeTrimToBar(buffer)), this.transport.bpm);
           ui._waveformSamples = track.getWaveformSamples(WAVE_N);
+          ui.refreshStretchUI?.();
           ui.lockedSource = ui.selectedSource;
           this._applySourceLock(ui);
           track.startLooping(this.transport, this.transport.getNextBarTime());
@@ -1207,7 +1278,11 @@ export class UI {
     }
 
     const source = getSource();
-    this._undoBuffers.set(track.id, { buffer: track.buffer, playing: track.state === 'playing' });
+    this._undoBuffers.set(track.id, {
+      buffer:      track.rawBuffer,
+      originalBpm: track.originalBpm,
+      playing:     track.state === 'playing',
+    });
     track.stopLooping();
     this.transport.ensureRunning();
     this.recordingTrack = track;
@@ -1265,24 +1340,28 @@ export class UI {
     if (!ui) return;
     track.stopLooping();
     if (undoEntry.buffer) {
-      track.buffer = undoEntry.buffer;
+      track.setBuffer(undoEntry.buffer, undoEntry.originalBpm ?? this.transport.bpm);
+      track.updateStretch(this.transport);
       ui._waveformSamples = track.getWaveformSamples(WAVE_N);
       this.transport.ensureRunning();
       track.startLooping(this.transport, this.transport.getNextBarTime());
     } else {
       track.buffer = null;
+      track.rawBuffer = null;
       track.state = 'empty';
       ui._waveformSamples = null;
       ui.lockedSource = null;
       this._applySourceLock(ui);
     }
+    ui.refreshStretchUI?.();
     this._refreshTrackState(track, ui);
     this.toast(`${track.name} — 録音をUndoしました`, 'success');
   }
 
   _setTrackBuffer(track, ui, buffer, name) {
     track.latencyMs = LATENCY.file;
-    track.setBuffer(buffer);
+    track.setBuffer(buffer, this.transport.bpm);
+    ui.refreshStretchUI?.();
     if (name) {
       track.name = name;
       if (ui.nameSpan) ui.nameSpan.textContent = name;
@@ -1374,6 +1453,12 @@ export class UI {
         const buffer = await this.engine.loadUrl(tc.file);
         const name   = tc.name ?? tc.file.split('/').pop().replace(/\.[^.]+$/, '');
         this._setTrackBuffer(track, ui, buffer, name);
+        const tcBpm = tc.bpm ?? tc.originalBpm;
+        if (tcBpm      != null) track.originalBpm    = tcBpm;
+        if (tc.stretch != null) track.stretchEnabled = !!tc.stretch;
+        if (track.updateStretch(this.transport))
+          ui._waveformSamples = track.getWaveformSamples(WAVE_N);
+        ui.refreshStretchUI?.();
         return { track, ui, tc };
       } catch (err) {
         this.toast(`${tc.file}: 読み込み失敗`, 'error');
